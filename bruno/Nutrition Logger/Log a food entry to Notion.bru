@@ -10,6 +10,10 @@ post {
   auth: none
 }
 
+headers {
+  x-api-key: {{apiKey}}
+}
+
 body:json {
   {
     "food_item": "Häagen-Dazs Mango (Sorbet & Ice Cream Bar)",

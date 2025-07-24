@@ -1,17 +1,27 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Header, Depends
 from pydantic import BaseModel, Field
 from typing import Literal
 import httpx
 import os
 
-app = FastAPI()
-
-# ENV VARIABLE: NOTION_SECRET should be set in your Render dashboard
+API_KEY = os.getenv("API_KEY")
 NOTION_SECRET = os.getenv("LLM_Update")
 NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
 
 if not NOTION_SECRET:
     raise RuntimeError("LLM_Update secret not set")
+if not API_KEY:
+    raise RuntimeError("API_KEY is not set")
+
+
+
+
+def verify_api_key(x_api_key: str = Header(...)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+app = FastAPI(dependencies=[Depends(verify_api_key)])
+
 
 class NutritionEntry(BaseModel):
     food_item: str
