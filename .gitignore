@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual Environment
+venv/
+.env
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Testing / Coverage
+.coverage
+htmlcov/
+.tox/
+.pytest_cache/
+
+# Render deploy artifacts (if using)
+.render/
+
+# IDEs / Editors
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.bak
+
+# Git
+*.orig
+
+# Local builds
+dist/
+build/
+*.egg-info/

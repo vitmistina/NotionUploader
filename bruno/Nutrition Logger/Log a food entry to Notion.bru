@@ -1,0 +1,24 @@
+meta {
+  name: Log a food entry to Notion
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "food_item": "Häagen-Dazs Mango (Sorbet & Ice Cream Bar)",
+    "date": "2025-07-24",
+    "calories": 190,
+    "protein_g": 1.7,
+    "carbs_g": 20.8,
+    "fat_g": 10.8,
+    "meal_type": "Snack",
+    "notes": "70g serving, mango flavor"
+  }
+}
