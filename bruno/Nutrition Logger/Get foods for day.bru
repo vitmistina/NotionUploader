@@ -1,0 +1,19 @@
+meta {
+  name: Get foods for day
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/foods?date=2025-07-24
+  body: json
+  auth: none
+}
+
+params:query {
+  date: 2025-07-24
+}
+
+headers {
+  x-api-key: {{apiKey}}
+}

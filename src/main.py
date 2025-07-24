@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException, Header, Depends
+from fastapi import FastAPI, Request, HTTPException, Header, Depends, Query
 from pydantic import BaseModel, Field
 from typing import Literal
 import httpx
@@ -67,3 +67,43 @@ async def log_nutrition(entry: NutritionEntry):
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
     return {"status": "success"}
+
+
+@app.get("/foods", response_model=list[NutritionEntry])
+async def get_foods_by_date(date: str = Query(..., description="The date for which to retrieve food entries (YYYY-MM-DD)")):
+    notion_url = f"https://api.notion.com/v1/databases/{NOTION_DATABASE_ID}/query"
+    headers = {
+        "Authorization": f"Bearer {NOTION_SECRET}",
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28"
+    }
+    # Notion filter for exact date match
+    payload = {
+        "filter": {
+            "property": "Date",
+            "date": {"equals": date}
+        }
+    }
+    async with httpx.AsyncClient() as client:
+        response = await client.post(notion_url, json=payload, headers=headers)
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+    results = response.json().get("results", [])
+    entries = []
+    for page in results:
+        props = page["properties"]
+        try:
+            entry = NutritionEntry(
+                food_item=props["Food Item"]["title"][0]["text"]["content"] if props["Food Item"]["title"] else "",
+                date=props["Date"]["date"]["start"] if props["Date"]["date"] else "",
+                calories=props["Calories"]["number"],
+                protein_g=props["Protein (g)"]["number"],
+                carbs_g=props["Carbs (g)"]["number"],
+                fat_g=props["Fat (g)"]["number"],
+                meal_type=props["Meal Type"]["select"]["name"] if props["Meal Type"]["select"] else "",
+                notes=props["Notes"]["rich_text"][0]["text"]["content"] if props["Notes"]["rich_text"] else ""
+            )
+            entries.append(entry)
+        except Exception as e:
+            continue  # skip malformed entries
+    return entries

@@ -1,0 +1,138 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+      "title": "Nutrition Logger",
+      "description": "Logs food and macro data to Vit's Notion table",
+      "version": "1.0.0"
+    },
+    "servers": [
+      {
+        "url": "https://notionuploader-groa.onrender.com"
+      }
+    ],
+    "components": {
+      "securitySchemes": {
+        "ApiKeyAuth": {
+          "type": "apiKey",
+          "in": "header",
+          "name": "x-api-key"
+        }
+      },
+      "schemas": {
+        "FoodLogEntry": {
+          "type": "object",
+          "properties": {
+            "food_item": {
+              "type": "string",
+              "description": "Name of the food item"
+            },
+            "date": {
+              "type": "string",
+              "format": "date",
+              "description": "Date of the meal in YYYY-MM-DD format"
+            },
+            "calories": {
+              "type": "integer",
+              "description": "Total calories"
+            },
+            "protein_g": {
+              "type": "number",
+              "description": "Protein in grams"
+            },
+            "carbs_g": {
+              "type": "number",
+              "description": "Carbs in grams"
+            },
+            "fat_g": {
+              "type": "number",
+              "description": "Fat in grams"
+            },
+            "meal_type": {
+              "type": "string",
+              "description": "Meal category",
+              "enum": ["Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"]
+            },
+            "notes": {
+              "type": "string",
+              "description": "Required notes about the food",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "food_item",
+            "date",
+            "calories",
+            "protein_g",
+            "carbs_g",
+            "fat_g",
+            "meal_type",
+            "notes"
+          ]
+        }
+      }
+    },
+    "security": [
+      {
+        "ApiKeyAuth": []
+      }
+    ],
+    "paths": {
+      "/": {
+        "post": {
+          "operationId": "logNutrition",
+          "summary": "Log a food entry to Notion",
+          "description": "Send a structured meal log to Notion via Pipedream",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoodLogEntry"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successfully logged"
+            }
+          }
+        }
+      },
+      "/foods": {
+        "get": {
+          "operationId": "getFoodsByDate",
+          "summary": "Get logged foods for a specific date",
+          "description": "Returns an array of food log entries for the given date.",
+          "parameters": [
+            {
+              "name": "date",
+              "in": "query",
+              "required": true,
+              "schema": {
+                "type": "string",
+                "format": "date"
+              },
+              "description": "The date for which to retrieve food entries (YYYY-MM-DD)"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Array of food log entries",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/FoodLogEntry"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
