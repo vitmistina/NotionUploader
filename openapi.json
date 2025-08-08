@@ -3,33 +3,22 @@
   "info": {
     "title": "Nutrition Logger",
     "description": "Logs food and macro data to Vit's Notion table",
-    "version": "1.0.0"
+    "version": "2.0.0"
   },
   "paths": {
     "/": {
       "post": {
         "summary": "Log Nutrition",
         "operationId": "log_nutrition__post",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
-          }
-        ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/NutritionEntry"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
@@ -50,13 +39,64 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/v2/nutrition-entries": {
+      "post": {
+        "summary": "Create Nutrition Entry",
+        "operationId": "create_nutrition_entry_v2_nutrition_entries_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NutritionEntry"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
       }
     },
     "/foods": {
       "get": {
         "summary": "Get Foods By Date",
         "operationId": "get_foods_by_date_foods_get",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "date",
@@ -68,15 +108,6 @@
               "title": "Date"
             },
             "description": "The date for which to retrieve food entries (YYYY-MM-DD)"
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -107,10 +138,65 @@
         }
       }
     },
+    "/v2/nutrition-entries/daily/{date}": {
+      "get": {
+        "summary": "List Daily Nutrition Entries",
+        "operationId": "list_daily_nutrition_entries_v2_nutrition_entries_daily__date__get",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Date to fetch in YYYY-MM-DD format.",
+              "title": "Date"
+            },
+            "description": "Date to fetch in YYYY-MM-DD format."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NutritionEntry"
+                  },
+                  "title": "Response List Daily Nutrition Entries V2 Nutrition Entries Daily  Date  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/foods-range": {
       "get": {
         "summary": "Get Foods By Date Range",
         "operationId": "get_foods_by_date_range_foods_range_get",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "start_date",
@@ -133,15 +219,6 @@
               "title": "End Date"
             },
             "description": "The end date (YYYY-MM-DD, inclusive)"
-          },
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "X-Api-Key"
-            }
           }
         ],
         "responses": {
@@ -170,6 +247,89 @@
             }
           }
         }
+      }
+    },
+    "/v2/nutrition-entries/period": {
+      "get": {
+        "summary": "List Nutrition Entries By Period",
+        "operationId": "list_nutrition_entries_by_period_v2_nutrition_entries_period_get",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Start date (inclusive) in YYYY-MM-DD format.",
+              "title": "Start Date"
+            },
+            "description": "Start date (inclusive) in YYYY-MM-DD format."
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "End date (inclusive) in YYYY-MM-DD format.",
+              "title": "End Date"
+            },
+            "description": "End date (inclusive) in YYYY-MM-DD format."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NutritionEntry"
+                  },
+                  "title": "Response List Nutrition Entries By Period V2 Nutrition Entries Period Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/api-schema": {
+      "get": {
+        "summary": "Get Api Schema",
+        "description": "Return the OpenAPI schema for this API version.",
+        "operationId": "get_api_schema_v2_api_schema_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
       }
     }
   },
@@ -286,15 +446,5 @@
         "name": "x-api-key"
       }
     }
-  },
-  "servers": [
-    {
-      "url": "https://notionuploader-groa.onrender.com"
-    }
-  ],
-  "security": [
-    {
-      "ApiKeyAuth": []
-    }
-  ]
+  }
 }
