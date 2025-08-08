@@ -1,4 +1,6 @@
-from fastapi import FastAPI, Request, HTTPException, Header, Depends, Query
+from fastapi import FastAPI, HTTPException, Header, Depends, Query
+from fastapi.openapi.utils import get_openapi
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import Literal
 import httpx
@@ -8,19 +10,41 @@ API_KEY = os.getenv("API_KEY")
 NOTION_SECRET = os.getenv("LLM_Update")
 NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
 
-if not NOTION_SECRET:
-    raise RuntimeError("LLM_Update secret not set")
-if not API_KEY:
-    raise RuntimeError("API_KEY is not set")
-
-
-
 
 def verify_api_key(x_api_key: str = Header(...)):
+    if API_KEY is None:
+        raise RuntimeError("API_KEY is not set")
     if x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 app = FastAPI(dependencies=[Depends(verify_api_key)])
+
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title="Nutrition Logger",
+        version="1.0.0",
+        description="Logs food and macro data to Vit's Notion table",
+        routes=app.routes,
+    )
+    openapi_schema["servers"] = [
+        {"url": "https://notionuploader-groa.onrender.com"}
+    ]
+    openapi_schema.setdefault("components", {}).setdefault("securitySchemes", {})[
+        "ApiKeyAuth"
+    ] = {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key",
+    }
+    openapi_schema["security"] = [{"ApiKeyAuth": []}]
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
 
 
 class NutritionEntry(BaseModel):
@@ -107,3 +131,9 @@ async def get_foods_by_date(date: str = Query(..., description="The date for whi
         except Exception as e:
             continue  # skip malformed entries
     return entries
+
+
+@app.get("/openapi", include_in_schema=False)
+async def get_openapi_endpoint():
+    """Return the OpenAPI schema for this application."""
+    return JSONResponse(app.openapi())

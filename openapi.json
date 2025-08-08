@@ -1,132 +1,105 @@
 {
-    "openapi": "3.1.0",
-    "info": {
-      "title": "Nutrition Logger",
-      "description": "Logs food and macro data to Vit's Notion table",
-      "version": "1.0.0"
-    },
-    "servers": [
-      {
-        "url": "https://notionuploader-groa.onrender.com"
-      }
-    ],
-    "components": {
-      "securitySchemes": {
-        "ApiKeyAuth": {
-          "type": "apiKey",
-          "in": "header",
-          "name": "x-api-key"
-        }
-      },
-      "schemas": {
-        "FoodLogEntry": {
-          "type": "object",
-          "properties": {
-            "food_item": {
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Nutrition Logger",
+    "description": "Logs food and macro data to Vit's Notion table",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/": {
+      "post": {
+        "summary": "Log Nutrition",
+        "operationId": "log_nutrition__post",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": true,
+            "schema": {
               "type": "string",
-              "description": "Name of the food item"
-            },
-            "date": {
-              "type": "string",
-              "format": "date",
-              "description": "Date of the meal in YYYY-MM-DD format"
-            },
-            "calories": {
-              "type": "integer",
-              "description": "Total calories"
-            },
-            "protein_g": {
-              "type": "number",
-              "description": "Protein in grams"
-            },
-            "carbs_g": {
-              "type": "number",
-              "description": "Carbs in grams"
-            },
-            "fat_g": {
-              "type": "number",
-              "description": "Fat in grams"
-            },
-            "meal_type": {
-              "type": "string",
-              "description": "Meal category",
-              "enum": ["Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"]
-            },
-            "notes": {
-              "type": "string",
-              "description": "Required notes about the food",
-              "minLength": 1
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NutritionEntry"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
             }
           },
-          "required": [
-            "food_item",
-            "date",
-            "calories",
-            "protein_g",
-            "carbs_g",
-            "fat_g",
-            "meal_type",
-            "notes"
-          ]
-        }
-      }
-    },
-    "security": [
-      {
-        "ApiKeyAuth": []
-      }
-    ],
-    "paths": {
-      "/": {
-        "post": {
-          "operationId": "logNutrition",
-          "summary": "Log a food entry to Notion",
-          "description": "Send a structured meal log to Notion via Pipedream",
-          "requestBody": {
-            "required": true,
+          "422": {
+            "description": "Validation Error",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FoodLogEntry"
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/foods": {
+      "get": {
+        "summary": "Get Foods By Date",
+        "operationId": "get_foods_by_date_foods_get",
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The date for which to retrieve food entries (YYYY-MM-DD)",
+              "title": "Date"
+            },
+            "description": "The date for which to retrieve food entries (YYYY-MM-DD)"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NutritionEntry"
+                  },
+                  "title": "Response Get Foods By Date Foods Get"
                 }
               }
             }
           },
-          "responses": {
-            "200": {
-              "description": "Successfully logged"
-            }
-          }
-        }
-      },
-      "/foods": {
-        "get": {
-          "operationId": "getFoodsByDate",
-          "summary": "Get logged foods for a specific date",
-          "description": "Returns an array of food log entries for the given date.",
-          "parameters": [
-            {
-              "name": "date",
-              "in": "query",
-              "required": true,
-              "schema": {
-                "type": "string",
-                "format": "date"
-              },
-              "description": "The date for which to retrieve food entries (YYYY-MM-DD)"
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Array of food log entries",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/FoodLogEntry"
-                    }
-                  }
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -134,5 +107,129 @@
         }
       }
     }
-  }
-  
+  },
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "NutritionEntry": {
+        "properties": {
+          "food_item": {
+            "type": "string",
+            "title": "Food Item"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "calories": {
+            "type": "integer",
+            "title": "Calories"
+          },
+          "protein_g": {
+            "type": "number",
+            "title": "Protein G"
+          },
+          "carbs_g": {
+            "type": "number",
+            "title": "Carbs G"
+          },
+          "fat_g": {
+            "type": "number",
+            "title": "Fat G"
+          },
+          "meal_type": {
+            "type": "string",
+            "enum": [
+              "Breakfast",
+              "Lunch",
+              "Dinner",
+              "Snack",
+              "Pre-workout",
+              "Post-workout"
+            ],
+            "title": "Meal Type"
+          },
+          "notes": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "food_item",
+          "date",
+          "calories",
+          "protein_g",
+          "carbs_g",
+          "fat_g",
+          "meal_type",
+          "notes"
+        ],
+        "title": "NutritionEntry"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "x-api-key"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://notionuploader-groa.onrender.com"
+    }
+  ],
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ]
+}
