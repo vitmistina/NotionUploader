@@ -6,47 +6,6 @@
     "version": "2.0.0"
   },
   "paths": {
-    "/": {
-      "post": {
-        "summary": "Log Nutrition",
-        "operationId": "log_nutrition__post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NutritionEntry"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "ApiKeyAuth": []
-          }
-        ]
-      }
-    },
     "/v2/nutrition-entries": {
       "post": {
         "summary": "Create Nutrition Entry",
@@ -66,7 +25,13 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Create Nutrition Entry V2 Nutrition Entries Post"
+                }
               }
             }
           },
@@ -86,56 +51,6 @@
             "ApiKeyAuth": []
           }
         ]
-      }
-    },
-    "/foods": {
-      "get": {
-        "summary": "Get Foods By Date",
-        "operationId": "get_foods_by_date_foods_get",
-        "security": [
-          {
-            "ApiKeyAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "date",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "The date for which to retrieve food entries (YYYY-MM-DD)",
-              "title": "Date"
-            },
-            "description": "The date for which to retrieve food entries (YYYY-MM-DD)"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/NutritionEntry"
-                  },
-                  "title": "Response Get Foods By Date Foods Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/v2/nutrition-entries/daily/{date}": {
@@ -171,67 +86,6 @@
                     "$ref": "#/components/schemas/NutritionEntry"
                   },
                   "title": "Response List Daily Nutrition Entries V2 Nutrition Entries Daily  Date  Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/foods-range": {
-      "get": {
-        "summary": "Get Foods By Date Range",
-        "operationId": "get_foods_by_date_range_foods_range_get",
-        "security": [
-          {
-            "ApiKeyAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "start_date",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "The start date (YYYY-MM-DD, inclusive)",
-              "title": "Start Date"
-            },
-            "description": "The start date (YYYY-MM-DD, inclusive)"
-          },
-          {
-            "name": "end_date",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "description": "The end date (YYYY-MM-DD, inclusive)",
-              "title": "End Date"
-            },
-            "description": "The end date (YYYY-MM-DD, inclusive)"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/NutritionEntry"
-                  },
-                  "title": "Response Get Foods By Date Range Foods Range Get"
                 }
               }
             }
