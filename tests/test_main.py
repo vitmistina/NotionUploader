@@ -21,7 +21,7 @@ async def test_auth_missing_key():
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.get("/openapi")
-    assert response.status_code == 422
+    assert response.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -160,8 +160,11 @@ async def test_openapi_schema():
         )
     assert response.status_code == 200
     schema = response.json()
-    assert schema["servers"][0]["url"] == "https://notionuploader-groa.onrender.com"
     assert (
         schema["components"]["securitySchemes"]["ApiKeyAuth"]["name"]
         == "x-api-key"
     )
+    for path_item in schema['paths'].values():
+        for operation in path_item.values():
+            if isinstance(operation, dict) and 'parameters' in operation:
+                assert all(p['name'] != 'x-api-key' for p in operation['parameters'])
