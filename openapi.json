@@ -26,11 +26,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "type": "object",
-                  "title": "Response Create Nutrition Entry V2 Nutrition Entries Post"
+                  "$ref": "#/components/schemas/StatusResponse"
                 }
               }
             }
@@ -258,6 +254,20 @@
           "notes"
         ],
         "title": "NutritionEntry"
+      },
+      "StatusResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "StatusResponse",
+        "description": "Simple response model indicating operation status."
       },
       "ValidationError": {
         "properties": {

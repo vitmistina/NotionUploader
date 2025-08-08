@@ -6,9 +6,9 @@ import httpx
 from fastapi import HTTPException
 
 from .config import NOTION_DATABASE_ID, NOTION_HEADERS
-from .models import NutritionEntry
+from .models import NutritionEntry, StatusResponse
 
-async def submit_to_notion(entry: NutritionEntry) -> Dict[str, str]:
+async def submit_to_notion(entry: NutritionEntry) -> StatusResponse:
     """Create a page in the configured Notion database for the entry."""
     payload: Dict[str, Any] = {
         "parent": {"database_id": NOTION_DATABASE_ID},
@@ -29,7 +29,7 @@ async def submit_to_notion(entry: NutritionEntry) -> Dict[str, str]:
         )
     if response.status_code != 200:
         raise HTTPException(status_code=response.status_code, detail=response.text)
-    return {"status": "success"}
+    return StatusResponse(status="success")
 
 def parse_page(page: Dict[str, Any]) -> Optional[NutritionEntry]:
     props: Dict[str, Any] = page["properties"]

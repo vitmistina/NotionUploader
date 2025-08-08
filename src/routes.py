@@ -5,13 +5,13 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, Path, Query, Request
 from fastapi.responses import JSONResponse
 
-from .models import NutritionEntry
+from .models import NutritionEntry, StatusResponse
 from .notion import entries_in_range, entries_on_date, submit_to_notion
 
 router: APIRouter = APIRouter(prefix="/v2")
 
-@router.post("/nutrition-entries", status_code=201)
-async def create_nutrition_entry(entry: NutritionEntry) -> Dict[str, str]:
+@router.post("/nutrition-entries", status_code=201, response_model=StatusResponse)
+async def create_nutrition_entry(entry: NutritionEntry) -> StatusResponse:
     return await submit_to_notion(entry)
 
 @router.get("/nutrition-entries/daily/{date}", response_model=List[NutritionEntry])

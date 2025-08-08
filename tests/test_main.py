@@ -8,6 +8,7 @@ import json
 import pytest
 import respx
 from fastapi import FastAPI
+from openapi_spec_validator import validate
 
 # Set environment variables before importing the app
 os.environ["API_KEY"] = "test-key"
@@ -168,6 +169,7 @@ async def test_openapi_schema() -> None:
         )
     assert response.status_code == 200
     schema: Dict[str, Any] = response.json()
+    validate(schema)
     assert (
         schema["components"]["securitySchemes"]["ApiKeyAuth"]["name"]
         == "x-api-key"
