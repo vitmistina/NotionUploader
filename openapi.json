@@ -446,5 +446,10 @@
         "name": "x-api-key"
       }
     }
-  }
+  },
+  "servers": [
+    {
+      "url": "https://notionuploader-groa.onrender.com"
+    }
+  ]
 }

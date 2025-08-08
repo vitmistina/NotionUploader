@@ -178,5 +178,9 @@ async def list_nutrition_entries_by_period(
 @app.get("/v2/api-schema")
 async def get_api_schema():
     """Return the OpenAPI schema for this API version."""
-    return JSONResponse(app.openapi())
+    openapi_schema = app.openapi()
+    openapi_schema["servers"] = [
+        {"url": "https://notionuploader-groa.onrender.com"}
+    ]
+    return JSONResponse(openapi_schema)
 

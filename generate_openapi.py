@@ -9,6 +9,9 @@ from src.main import app
 def generate_openapi() -> None:
     """Write the current OpenAPI schema to ``openapi.json``."""
     schema = app.openapi()
+    schema["servers"] = [
+        {"url": "https://notionuploader-groa.onrender.com"}
+    ]
     output_path = Path(__file__).resolve().parent / "openapi.json"
     output_path.write_text(json.dumps(schema, indent=2))
 
