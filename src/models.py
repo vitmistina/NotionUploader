@@ -14,3 +14,9 @@ class NutritionEntry(BaseModel):
         "Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Post-workout"
     ]
     notes: str = Field(..., min_length=1)
+
+
+class StatusResponse(BaseModel):
+    """Simple response model indicating operation status."""
+
+    status: str
