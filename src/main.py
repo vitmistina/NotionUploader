@@ -1,6 +1,6 @@
-from fastapi import FastAPI, HTTPException, Header, Depends, Query, Path
-from fastapi.openapi.utils import get_openapi
+from fastapi import FastAPI, HTTPException, Depends, Query, Path, Security
 from fastapi.responses import JSONResponse
+from fastapi.security import APIKeyHeader
 from pydantic import BaseModel, Field
 from typing import Literal
 import httpx
@@ -11,41 +11,22 @@ NOTION_SECRET = os.getenv("LLM_Update")
 NOTION_DATABASE_ID = os.getenv("NOTION_DATABASE_ID")
 
 
-def verify_api_key(x_api_key: str = Header(...)):
+api_key_header = APIKeyHeader(name="x-api-key", scheme_name="ApiKeyAuth", auto_error=False)
+
+
+def verify_api_key(x_api_key: str = Security(api_key_header)):
     if API_KEY is None:
         raise RuntimeError("API_KEY is not set")
-    if x_api_key != API_KEY:
+    if not x_api_key or x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-app = FastAPI(dependencies=[Depends(verify_api_key)])
-
-
-def custom_openapi():
-    if app.openapi_schema:
-        return app.openapi_schema
-    openapi_schema = get_openapi(
-        title="Nutrition Logger",
-        version="2.0.0",
-        description="Logs food and macro data to Vit's Notion table",
-        routes=app.routes,
-    )
-    openapi_schema["servers"] = [
-        {"url": "https://notionuploader-groa.onrender.com"}
-    ]
-    openapi_schema.setdefault("components", {}).setdefault("securitySchemes", {})[
-        "ApiKeyAuth"
-    ] = {
-        "type": "apiKey",
-        "in": "header",
-        "name": "x-api-key",
-    }
-    openapi_schema["security"] = [{"ApiKeyAuth": []}]
-    app.openapi_schema = openapi_schema
-    return app.openapi_schema
-
-
-app.openapi = custom_openapi
+app = FastAPI(
+    title="Nutrition Logger",
+    version="2.0.0",
+    description="Logs food and macro data to Vit's Notion table",
+    dependencies=[Depends(verify_api_key)],
+)
 
 
 class NutritionEntry(BaseModel):
