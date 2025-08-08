@@ -106,6 +106,71 @@
           }
         }
       }
+    },
+    "/foods-range": {
+      "get": {
+        "summary": "Get Foods By Date Range",
+        "operationId": "get_foods_by_date_range_foods_range_get",
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The start date (YYYY-MM-DD, inclusive)",
+              "title": "Start Date"
+            },
+            "description": "The start date (YYYY-MM-DD, inclusive)"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The end date (YYYY-MM-DD, inclusive)",
+              "title": "End Date"
+            },
+            "description": "The end date (YYYY-MM-DD, inclusive)"
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NutritionEntry"
+                  },
+                  "title": "Response Get Foods By Date Range Foods Range Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
