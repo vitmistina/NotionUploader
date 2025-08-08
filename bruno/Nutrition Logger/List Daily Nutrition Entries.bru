@@ -1,0 +1,15 @@
+meta {
+  name: List Daily Nutrition Entries
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/v2/nutrition-entries/daily/{{date}}
+  body: json
+  auth: none
+}
+
+headers {
+  x-api-key: {{apiKey}}
+}
