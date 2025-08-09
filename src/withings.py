@@ -1,30 +1,18 @@
 import time
-import os
 from typing import Dict, Any, Optional, List
 import httpx
 from upstash_redis import Redis
 from .models import BodyMeasurement
 from datetime import datetime
-
-WBSAPI_URL = "https://wbsapi.withings.net"
-
-def get_env_var(name: str) -> str:
-    """Get environment variable or raise an error if it doesn't exist."""
-    value = os.getenv(name)
-    if value is None:
-        raise ValueError(f"Environment variable {name} is not set")
-    return value
-
-# Initialize Redis client
-UPSTASH_REDIS_REST_URL = get_env_var('UPSTASH_REDIS_REST_URL')
-UPSTASH_REDIS_REST_TOKEN = get_env_var('UPSTASH_REDIS_REST_TOKEN')
-WITHINGS_CLIENT_ID = get_env_var('WITHINGS_CLIENT_ID')
-WITHINGS_CLIENT_SECRET = get_env_var('WITHINGS_CLIENT_SECRET')
-
-# Additional environment variables for Withings API
-CLIENT_ID = get_env_var('CLIENT_ID')
-CUSTOMER_SECRET = get_env_var('CUSTOMER_SECRET')
-WBSAPI_URL = get_env_var('WBSAPI_URL')
+from .config import (
+    WBSAPI_URL,
+    UPSTASH_REDIS_REST_URL,
+    UPSTASH_REDIS_REST_TOKEN,
+    WITHINGS_CLIENT_ID,
+    WITHINGS_CLIENT_SECRET,
+    CLIENT_ID,
+    CUSTOMER_SECRET,
+)
 
 redis = Redis(url=UPSTASH_REDIS_REST_URL, token=UPSTASH_REDIS_REST_TOKEN)
 

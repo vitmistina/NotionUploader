@@ -160,6 +160,58 @@
         }
       }
     },
+    "/v2/body-measurements": {
+      "get": {
+        "summary": "List Body Measurements",
+        "description": "Get body measurements from Withings scale for the specified number of days.\nDefault is 7 days of measurements.",
+        "operationId": "list_body_measurements_v2_body_measurements_get",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "description": "Number of days of measurements to retrieve.",
+              "default": 7,
+              "title": "Days"
+            },
+            "description": "Number of days of measurements to retrieve."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BodyMeasurement"
+                  },
+                  "title": "Response List Body Measurements V2 Body Measurements Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/api-schema": {
       "get": {
         "summary": "Get Api Schema",
@@ -185,6 +237,80 @@
   },
   "components": {
     "schemas": {
+      "BodyMeasurement": {
+        "properties": {
+          "measurement_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Measurement Time"
+          },
+          "weight_kg": {
+            "type": "number",
+            "title": "Weight Kg",
+            "description": "Body weight in kilograms"
+          },
+          "fat_mass_kg": {
+            "type": "number",
+            "title": "Fat Mass Kg",
+            "description": "Total fat mass in kilograms"
+          },
+          "muscle_mass_kg": {
+            "type": "number",
+            "title": "Muscle Mass Kg",
+            "description": "Skeletal muscle mass in kilograms"
+          },
+          "bone_mass_kg": {
+            "type": "number",
+            "title": "Bone Mass Kg",
+            "description": "Bone mass in kilograms"
+          },
+          "hydration_kg": {
+            "type": "number",
+            "title": "Hydration Kg",
+            "description": "Body water content in kilograms"
+          },
+          "fat_free_mass_kg": {
+            "type": "number",
+            "title": "Fat Free Mass Kg",
+            "description": "Fat-free mass (muscles, bones, tissues) in kilograms"
+          },
+          "body_fat_percent": {
+            "type": "number",
+            "title": "Body Fat Percent",
+            "description": "Body fat percentage"
+          },
+          "device_name": {
+            "type": "string",
+            "title": "Device Name",
+            "description": "Name of the measuring device"
+          }
+        },
+        "type": "object",
+        "required": [
+          "measurement_time",
+          "weight_kg",
+          "fat_mass_kg",
+          "muscle_mass_kg",
+          "bone_mass_kg",
+          "hydration_kg",
+          "fat_free_mass_kg",
+          "body_fat_percent",
+          "device_name"
+        ],
+        "title": "BodyMeasurement",
+        "description": "A human-readable representation of body measurements from a smart scale.",
+        "example": {
+          "body_fat_percent": 21.5,
+          "bone_mass_kg": 3.845,
+          "device_name": "Withings Body+",
+          "fat_free_mass_kg": 21.507,
+          "fat_mass_kg": 14.8,
+          "hydration_kg": 54.016,
+          "measurement_time": "2025-08-09T08:01:06",
+          "muscle_mass_kg": 51.27,
+          "weight_kg": 68.816
+        }
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
