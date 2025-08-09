@@ -26,7 +26,7 @@ async def refresh_access_token() -> Optional[str]:
     Raises:
         ValueError: If refresh token is not found in Redis
     """
-    refresh_token = await redis.get("withings_refresh_token")
+    refresh_token = redis.get("withings_refresh_token")
     if not refresh_token:
         raise ValueError("No Withings refresh token found in Redis")
         
@@ -48,8 +48,8 @@ async def refresh_access_token() -> Optional[str]:
                 new_refresh_token = body.get('refresh_token')
                 
                 # Store new tokens
-                await redis.set("withings_access_token", new_access_token)
-                await redis.set("withings_refresh_token", new_refresh_token)
+                redis.set("withings_access_token", new_access_token)
+                redis.set("withings_refresh_token", new_refresh_token)
                 return new_access_token
     return None
 
@@ -68,7 +68,7 @@ async def get_measurements(days: int = 7) -> List[BodyMeasurement]:
         ValueError: If both access token and refresh token are not found in Redis
         RuntimeError: If unable to get valid authentication
     """
-    access_token = await redis.get("withings_access_token")
+    access_token = redis.get("withings_access_token")
     if not access_token:
         access_token = await refresh_access_token()
         if not access_token:
