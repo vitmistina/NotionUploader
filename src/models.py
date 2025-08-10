@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
-from typing import Literal
+from typing import Literal, List
 from datetime import datetime
 
 class BodyMeasurement(BaseModel):
@@ -48,3 +48,14 @@ class StatusResponse(BaseModel):
     """Simple response model indicating operation status."""
 
     status: str
+
+
+class DailyNutritionSummary(BaseModel):
+    """Aggregated nutrition information for a single day."""
+
+    date: str
+    calories: int
+    protein_g: float
+    carbs_g: float
+    fat_g: float
+    entries: List[NutritionEntry]

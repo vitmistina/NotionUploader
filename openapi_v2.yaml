@@ -62,9 +62,10 @@ paths:
                   $ref: "#/components/schemas/NutritionEntry"
   /v2/nutrition-entries/period:
     get:
-      summary: List nutrition entries within a date range
+      summary: List daily nutrition summaries within a date range
       description: >-
-        Retrieve all nutrition entries between two dates, inclusive.
+        Retrieve nutrition entries between two dates, grouped by day with
+        aggregated macronutrient totals.
       operationId: listNutritionEntriesByPeriod
       security:
         - ApiKeyAuth: []
@@ -83,13 +84,13 @@ paths:
             type: string
       responses:
         "200":
-          description: Array of nutrition entries within the specified period.
+          description: Array of daily nutrition summaries within the specified period.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/NutritionEntry"
+                  $ref: "#/components/schemas/DailyNutritionSummary"
   /v2/api-schema:
     get:
       summary: Retrieve API schema
@@ -154,5 +155,35 @@ components:
         notes:
           type: string
           description: Additional notes or details about the entry.
+    DailyNutritionSummary:
+      type: object
+      required:
+        - date
+        - calories
+        - protein_g
+        - carbs_g
+        - fat_g
+        - entries
+      properties:
+        date:
+          type: string
+          description: Date of the aggregated entries in YYYY-MM-DD format.
+        calories:
+          type: integer
+          description: Total calories consumed on this date.
+        protein_g:
+          type: number
+          description: Total protein in grams for this date.
+        carbs_g:
+          type: number
+          description: Total carbohydrates in grams for this date.
+        fat_g:
+          type: number
+          description: Total fat in grams for this date.
+        entries:
+          type: array
+          description: Detailed nutrition entries for the day.
+          items:
+            $ref: "#/components/schemas/NutritionEntry"
 security:
   - ApiKeyAuth: []
