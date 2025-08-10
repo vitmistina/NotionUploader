@@ -144,8 +144,44 @@ async def test_get_foods_by_date(respx_mock: respx.MockRouter) -> None:
 @pytest.mark.asyncio
 async def test_get_foods_range(respx_mock: respx.MockRouter) -> None:
     notion_url: str = "https://api.notion.com/v1/databases/db123/query"
+    page1: Dict[str, Any] = {
+        "properties": {
+            "Food Item": {"title": [{"text": {"content": "A"}}]},
+            "Date": {"date": {"start": "2023-01-01"}},
+            "Calories": {"number": 100},
+            "Protein (g)": {"number": 10},
+            "Carbs (g)": {"number": 20},
+            "Fat (g)": {"number": 5},
+            "Meal Type": {"select": {"name": "Snack"}},
+            "Notes": {"rich_text": [{"text": {"content": "note"}}]},
+        }
+    }
+    page2: Dict[str, Any] = {
+        "properties": {
+            "Food Item": {"title": [{"text": {"content": "B"}}]},
+            "Date": {"date": {"start": "2023-01-01"}},
+            "Calories": {"number": 200},
+            "Protein (g)": {"number": 20},
+            "Carbs (g)": {"number": 40},
+            "Fat (g)": {"number": 10},
+            "Meal Type": {"select": {"name": "Snack"}},
+            "Notes": {"rich_text": [{"text": {"content": "note"}}]},
+        }
+    }
+    page3: Dict[str, Any] = {
+        "properties": {
+            "Food Item": {"title": [{"text": {"content": "C"}}]},
+            "Date": {"date": {"start": "2023-01-02"}},
+            "Calories": {"number": 300},
+            "Protein (g)": {"number": 30},
+            "Carbs (g)": {"number": 60},
+            "Fat (g)": {"number": 15},
+            "Meal Type": {"select": {"name": "Snack"}},
+            "Notes": {"rich_text": [{"text": {"content": "note"}}]},
+        }
+    }
     respx_mock.post(notion_url).mock(
-        return_value=httpx.Response(200, json={"results": []})
+        return_value=httpx.Response(200, json={"results": [page1, page2, page3]})
     )
     transport: httpx.ASGITransport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
@@ -155,6 +191,17 @@ async def test_get_foods_range(respx_mock: respx.MockRouter) -> None:
             headers={"x-api-key": "test-key"},
         )
     assert response.status_code == 200
+    data: List[Dict[str, Any]] = response.json()
+    assert len(data) == 2
+    day1: Dict[str, Any] = data[0]
+    assert day1["date"] == "2023-01-01"
+    assert day1["calories"] == 300
+    assert day1["protein_g"] == 30
+    assert len(day1["entries"]) == 2
+    day2: Dict[str, Any] = data[1]
+    assert day2["date"] == "2023-01-02"
+    assert day2["calories"] == 300
+    assert len(day2["entries"]) == 1
     request_json: Dict[str, Any] = json.loads(respx_mock.calls[0].request.content)
     assert request_json["filter"]["and"][0]["date"]["on_or_after"] == "2023-01-01"
     assert request_json["filter"]["and"][1]["date"]["on_or_before"] == "2023-01-02"

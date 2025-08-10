@@ -5,8 +5,14 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, Path, Query, Request
 from fastapi.responses import JSONResponse
 
-from .models import BodyMeasurement, NutritionEntry, StatusResponse
-from .notion import entries_in_range, entries_on_date, submit_to_notion
+from .models import (
+    BodyMeasurement,
+    DailyNutritionSummary,
+    NutritionEntry,
+    StatusResponse,
+)
+from .notion import entries_on_date, submit_to_notion
+from .nutrition import get_daily_nutrition_summaries
 from .withings import get_measurements
 
 router: APIRouter = APIRouter(prefix="/v2")
@@ -21,7 +27,9 @@ async def list_daily_nutrition_entries(
 ) -> List[NutritionEntry]:
     return await entries_on_date(date)
 
-@router.get("/nutrition-entries/period", response_model=List[NutritionEntry])
+@router.get(
+    "/nutrition-entries/period", response_model=List[DailyNutritionSummary]
+)
 async def list_nutrition_entries_by_period(
     start_date: str = Query(
         ..., description="Start date (inclusive) in YYYY-MM-DD format.",
@@ -29,8 +37,8 @@ async def list_nutrition_entries_by_period(
     end_date: str = Query(
         ..., description="End date (inclusive) in YYYY-MM-DD format.",
     ),
-) -> List[NutritionEntry]:
-    return await entries_in_range(start_date, end_date)
+) -> List[DailyNutritionSummary]:
+    return await get_daily_nutrition_summaries(start_date, end_date)
 
 @router.get("/body-measurements", response_model=List[BodyMeasurement])
 async def list_body_measurements(
