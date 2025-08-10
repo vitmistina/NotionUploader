@@ -12,16 +12,19 @@ def add_moving_average(
     """Attach 7-day moving averages to a list of body measurements.
 
     Measurements are first sorted by ``measurement_time`` and a simple moving
-    average is computed for each metric. If fewer than ``window`` measurements
-    are available so far, the moving average field is left as ``None``.
+    average is computed for each metric. ``None`` values are ignored so missing
+    data does not dilute the average. A moving average is always calculated
+    from the values available within the ``window`` size, even if fewer than
+    ``window`` non-missing values are present.
 
     Args:
         measurements: Raw body measurements.
-        window: Number of measurements to average over. Defaults to 7.
+        window: Number of measurements to consider for the moving window.
+            Defaults to 7.
 
     Returns:
-        The list of measurements with ``moving_average_7d`` populated when
-        enough data is available.
+        The list of measurements with ``moving_average_7d`` populated when all
+        metrics have at least one non-missing value in the current window.
     """
 
     metrics = [
@@ -43,10 +46,15 @@ def add_moving_average(
         for metric in metrics:
             queues[metric].append(getattr(m, metric))
 
-        if len(queues[metrics[0]]) == window:
-            averages = {
-                metric: sum(queues[metric]) / window for metric in metrics
-            }
+        averages: dict[str, float] = {}
+        for metric in metrics:
+            values = [v for v in queues[metric] if v is not None]
+            if values:
+                averages[metric] = sum(values) / len(values)
+            else:
+                break
+
+        if len(averages) == len(metrics):
             m.moving_average_7d = BodyMeasurementAverages(**averages)
         else:
             m.moving_average_7d = None

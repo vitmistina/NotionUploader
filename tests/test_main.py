@@ -14,6 +14,13 @@ from openapi_spec_validator import validate
 os.environ["API_KEY"] = "test-key"
 os.environ["LLM_Update"] = "notion-secret"
 os.environ["NOTION_DATABASE_ID"] = "db123"
+os.environ["WBSAPI_URL"] = "https://wbs.example.com"
+os.environ["UPSTASH_REDIS_REST_URL"] = "https://redis.example.com"
+os.environ["UPSTASH_REDIS_REST_TOKEN"] = "token"
+os.environ["WITHINGS_CLIENT_ID"] = "client-id"
+os.environ["WITHINGS_CLIENT_SECRET"] = "client-secret"
+os.environ["CLIENT_ID"] = "oauth-client-id"
+os.environ["CUSTOMER_SECRET"] = "oauth-secret"
 
 # Ensure the repository root is on the Python path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
