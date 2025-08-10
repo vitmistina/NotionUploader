@@ -2,14 +2,19 @@ from datetime import datetime, timedelta
 
 import pytest
 
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from src.metrics import add_moving_average
 from src.models import BodyMeasurement
 
 
-def make_measurement(day: int) -> BodyMeasurement:
-    base = datetime(2023, 1, 1)
-    value = float(day)
-    return BodyMeasurement(
+def make_measurement(day: int, value: float | None) -> BodyMeasurement:
+    """Create a BodyMeasurement for a given day with optional value."""
+    base = datetime(2025, 8, 1)
+    return BodyMeasurement.model_construct(
         measurement_time=base + timedelta(days=day - 1),
         weight_kg=value,
         fat_mass_kg=value,
@@ -22,14 +27,29 @@ def make_measurement(day: int) -> BodyMeasurement:
     )
 
 
-def test_add_moving_average() -> None:
-    measurements = [make_measurement(i) for i in range(1, 8)]
+def test_add_moving_average_partial_window() -> None:
+    measurements = [make_measurement(1, 10), make_measurement(2, 20)]
+    result = add_moving_average(measurements)
+    avg = result[-1].moving_average_7d
+    assert avg is not None
+    assert avg.weight_kg == pytest.approx(15.0)
+
+
+def test_add_moving_average_excludes_missing_values() -> None:
+    measurements = [
+        make_measurement(1, 10),
+        make_measurement(2, None),
+        make_measurement(3, 30),
+        make_measurement(4, None),
+        make_measurement(5, 50),
+        make_measurement(6, None),
+        make_measurement(7, 70),
+    ]
     result = add_moving_average(measurements)
 
-    for i in range(6):
-        assert result[i].moving_average_7d is None
-
-    avg = result[6].moving_average_7d
+    avg = result[-1].moving_average_7d
     assert avg is not None
-    assert avg.weight_kg == pytest.approx(4.0)
-    assert avg.body_fat_percent == pytest.approx(4.0)
+    assert avg.weight_kg == pytest.approx(40.0)
+    # Only four non-missing values contribute to the average
+    values = [m.weight_kg for m in measurements if m.weight_kg is not None]
+    assert len(values) == 4
