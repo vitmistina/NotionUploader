@@ -2,8 +2,9 @@ import time
 from typing import Dict, Any, Optional, List
 import httpx
 from upstash_redis import Redis
-from .models import BodyMeasurement
 from datetime import datetime
+from .models import BodyMeasurement
+from .metrics import add_moving_average
 from .config import (
     WBSAPI_URL,
     UPSTASH_REDIS_REST_URL,
@@ -116,20 +117,25 @@ async def get_measurements(days: int = 7) -> List[BodyMeasurement]:
     
     for group in measuregroups:
         measurement_time = datetime.fromtimestamp(group.get('date', 0))
-        measures = {m['type']: m['value'] * (10 ** m['unit']) for m in group.get('measures', [])}
-        
+        measures = {
+            m['type']: m['value'] * (10 ** m['unit'])
+            for m in group.get('measures', [])
+        }
+
         # Map Withings measurement types to our model fields
         # Reference: https://developer.withings.com/api-reference/#operation/measure-getmeas
-        measurements.append(BodyMeasurement(
-            measurement_time=measurement_time,
-            weight_kg=measures.get(1, 0),  # Weight (kg)
-            fat_mass_kg=measures.get(8, 0),  # Fat Mass (kg)
-            muscle_mass_kg=measures.get(76, 0),  # Muscle Mass (kg)
-            bone_mass_kg=measures.get(88, 0),  # Bone Mass (kg)
-            hydration_kg=measures.get(77, 0),  # Hydration (kg)
-            fat_free_mass_kg=measures.get(5, 0),  # Fat Free Mass (kg)
-            body_fat_percent=measures.get(6, 0),  # Body Fat Percentage
-            device_name=group.get('device', 'Withings Device')
-        ))
-    
-    return measurements
+        measurements.append(
+            BodyMeasurement(
+                measurement_time=measurement_time,
+                weight_kg=measures.get(1, 0),  # Weight (kg)
+                fat_mass_kg=measures.get(8, 0),  # Fat Mass (kg)
+                muscle_mass_kg=measures.get(76, 0),  # Muscle Mass (kg)
+                bone_mass_kg=measures.get(88, 0),  # Bone Mass (kg)
+                hydration_kg=measures.get(77, 0),  # Hydration (kg)
+                fat_free_mass_kg=measures.get(5, 0),  # Fat Free Mass (kg)
+                body_fat_percent=measures.get(6, 0),  # Body Fat Percentage
+                device_name=group.get('device', 'Withings Device')
+            )
+        )
+
+    return add_moving_average(measurements)

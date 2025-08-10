@@ -283,6 +283,17 @@
             "type": "string",
             "title": "Device Name",
             "description": "Name of the measuring device"
+          },
+          "moving_average_7d": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BodyMeasurementAverages"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "7-day moving averages for the measurement metrics"
           }
         },
         "type": "object",
@@ -310,6 +321,57 @@
           "muscle_mass_kg": 51.27,
           "weight_kg": 68.816
         }
+      },
+      "BodyMeasurementAverages": {
+        "properties": {
+          "weight_kg": {
+            "type": "number",
+            "title": "Weight Kg",
+            "description": "7-day average of body weight in kilograms"
+          },
+          "fat_mass_kg": {
+            "type": "number",
+            "title": "Fat Mass Kg",
+            "description": "7-day average of total fat mass in kilograms"
+          },
+          "muscle_mass_kg": {
+            "type": "number",
+            "title": "Muscle Mass Kg",
+            "description": "7-day average of skeletal muscle mass in kilograms"
+          },
+          "bone_mass_kg": {
+            "type": "number",
+            "title": "Bone Mass Kg",
+            "description": "7-day average of bone mass in kilograms"
+          },
+          "hydration_kg": {
+            "type": "number",
+            "title": "Hydration Kg",
+            "description": "7-day average of body water content in kilograms"
+          },
+          "fat_free_mass_kg": {
+            "type": "number",
+            "title": "Fat Free Mass Kg",
+            "description": "7-day average of fat-free mass (muscles, bones, tissues) in kilograms"
+          },
+          "body_fat_percent": {
+            "type": "number",
+            "title": "Body Fat Percent",
+            "description": "7-day average of body fat percentage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "weight_kg",
+          "fat_mass_kg",
+          "muscle_mass_kg",
+          "bone_mass_kg",
+          "hydration_kg",
+          "fat_free_mass_kg",
+          "body_fat_percent"
+        ],
+        "title": "BodyMeasurementAverages",
+        "description": "7-day moving averages for body measurements."
       },
       "DailyNutritionSummary": {
         "properties": {
