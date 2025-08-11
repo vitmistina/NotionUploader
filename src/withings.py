@@ -47,10 +47,13 @@ async def refresh_access_token() -> Optional[str]:
                 body = data.get('body', {})
                 new_access_token = body.get('access_token')
                 new_refresh_token = body.get('refresh_token')
+                expires_in = body.get('expires_in')
                 
-                # Store new tokens
-                redis.set("withings_access_token", new_access_token)
-                redis.set("withings_refresh_token", new_refresh_token)
+                # Store new tokens with expiration
+                # Access token expires in specified time minus 30s buffer
+                redis.set("withings_access_token", new_access_token, ex=int(expires_in) - 30 if expires_in else None)
+                # Refresh token expires in 1 year
+                redis.set("withings_refresh_token", new_refresh_token, ex=365*24*60*60)
                 return new_access_token
     return None
 
