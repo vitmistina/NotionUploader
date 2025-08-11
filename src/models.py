@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
-from typing import Literal, List, Optional
+from typing import Literal, List, Optional, Dict, Any
 from datetime import datetime
 
 class BodyMeasurementAverages(BaseModel):
@@ -62,6 +62,64 @@ class BodyMeasurement(BaseModel):
                 "device_name": "Withings Body+"
             }
         }
+
+
+class Workout(BaseModel):
+    """Simplified representation of a Strava workout."""
+
+    id: int
+    name: str
+    start_date: datetime
+    type: str
+    distance_m: float = Field(..., description="Distance in meters")
+    moving_time_s: int = Field(..., description="Moving time in seconds")
+    elapsed_time_s: int = Field(..., description="Elapsed time in seconds")
+    total_elevation_gain_m: float = Field(
+        ..., description="Total elevation gain in meters"
+    )
+    average_speed_mps: Optional[float] = Field(
+        None, description="Average speed in meters per second"
+    )
+    max_speed_mps: Optional[float] = Field(
+        None, description="Maximum speed in meters per second"
+    )
+    average_watts: Optional[float] = Field(
+        None, description="Average power output in watts"
+    )
+    kilojoules: Optional[float] = Field(
+        None, description="Total work done in kilojoules"
+    )
+    device_watts: Optional[bool] = Field(
+        None, description="True if power data comes from a power meter"
+    )
+    average_heartrate: Optional[float] = Field(
+        None, description="Average heart rate in beats per minute"
+    )
+    max_heartrate: Optional[float] = Field(
+        None, description="Maximum heart rate in beats per minute"
+    )
+
+    @classmethod
+    def from_api(cls, data: Dict[str, Any]) -> "Workout":
+        """Create a Workout model from Strava API activity data."""
+        return cls(
+            id=data.get("id"),
+            name=data.get("name", ""),
+            start_date=data.get("start_date"),
+            type=data.get("type", ""),
+            distance_m=data.get("distance", 0.0),
+            moving_time_s=data.get("moving_time", 0),
+            elapsed_time_s=data.get("elapsed_time", 0),
+            total_elevation_gain_m=data.get("total_elevation_gain", 0.0),
+            average_speed_mps=data.get("average_speed"),
+            max_speed_mps=data.get("max_speed"),
+            average_watts=data.get("average_watts"),
+            kilojoules=data.get("kilojoules"),
+            device_watts=data.get("device_watts"),
+            average_heartrate=data.get("average_heartrate"),
+            max_heartrate=data.get("max_heartrate"),
+        )
+
 
 class NutritionEntry(BaseModel):
     food_item: str

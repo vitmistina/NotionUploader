@@ -10,10 +10,12 @@ from .models import (
     DailyNutritionSummary,
     NutritionEntry,
     StatusResponse,
+    Workout,
 )
 from .notion import entries_on_date, submit_to_notion
 from .nutrition import get_daily_nutrition_summaries
 from .withings import get_measurements
+from .strava import get_activities
 
 router: APIRouter = APIRouter(prefix="/v2")
 
@@ -49,6 +51,13 @@ async def list_body_measurements(
     Default is 7 days of measurements.
     """
     return await get_measurements(days)
+
+
+@router.get("/workouts", response_model=List[Workout])
+async def list_workouts(
+    days: int = Query(7, description="Number of days of workouts to retrieve."),
+) -> List[Workout]:
+    return await get_activities(days)
 
 @router.get("/api-schema")
 async def get_api_schema(request: Request) -> JSONResponse:

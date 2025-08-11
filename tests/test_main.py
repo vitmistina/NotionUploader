@@ -1,7 +1,7 @@
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import httpx
 import json
@@ -21,6 +21,8 @@ os.environ["WITHINGS_CLIENT_ID"] = "client-id"
 os.environ["WITHINGS_CLIENT_SECRET"] = "client-secret"
 os.environ["CLIENT_ID"] = "oauth-client-id"
 os.environ["CUSTOMER_SECRET"] = "oauth-secret"
+os.environ["STRAVA_CLIENT_ID"] = "strava-client-id"
+os.environ["STRAVA_CLIENT_SECRET"] = "strava-client-secret"
 
 # Ensure the repository root is on the Python path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -213,6 +215,73 @@ async def test_get_foods_range(respx_mock: respx.MockRouter) -> None:
     assert request_json["filter"]["and"][0]["date"]["on_or_after"] == "2023-01-01"
     assert request_json["filter"]["and"][1]["date"]["on_or_before"] == "2023-01-02"
 
+
+
+
+
+class FakeRedis:
+    def __init__(self) -> None:
+        self.store: Dict[str, Any] = {}
+
+    def get(self, key: str) -> Any:
+        return self.store.get(key)
+
+    def set(self, key: str, value: Any, ex: Optional[int] = None) -> None:
+        self.store[key] = value
+
+
+@pytest.mark.asyncio
+async def test_get_workouts(respx_mock: respx.MockRouter) -> None:
+    from src import strava as strava_module
+
+    fake = FakeRedis()
+    fake.set("strava_refresh_token", "refresh123")
+    strava_module.redis = fake
+
+    activity: Dict[str, Any] = {
+        "id": 1,
+        "name": "Morning Ride",
+        "distance": 25000.0,
+        "moving_time": 3600,
+        "elapsed_time": 3700,
+        "total_elevation_gain": 500.0,
+        "type": "Ride",
+        "start_date": "2023-01-01T10:00:00Z",
+        "average_speed": 6.9,
+        "max_speed": 12.3,
+        "average_watts": 210.0,
+        "kilojoules": 756.0,
+        "device_watts": True,
+        "average_heartrate": 150.0,
+        "max_heartrate": 190.0,
+    }
+
+    respx_mock.get("https://www.strava.com/api/v3/athlete/activities").mock(
+        side_effect=[
+            httpx.Response(401),
+            httpx.Response(200, json=[activity]),
+        ]
+    )
+    respx_mock.post("https://www.strava.com/api/v3/oauth/token").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "access_token": "newtoken",
+                "refresh_token": "refresh456",
+                "expires_in": 3600,
+            },
+        )
+    )
+
+    transport: httpx.ASGITransport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get("/v2/workouts", headers={"x-api-key": "test-key"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["kilojoules"] == 756.0
+    assert fake.get("strava_access_token") == "newtoken"
 
 @pytest.mark.asyncio
 async def test_openapi_schema() -> None:
