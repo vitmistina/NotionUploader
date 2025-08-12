@@ -2,10 +2,16 @@
 
 [] implement endpoint for Strava Webhooks
   - I will register the webhook by hand in Bruno
+  - make sure, that the webhook is not part of the openapi documentation
+  - make sure, that the authorization/security matches specs of Strava (may be inconsistent with rest of endpoints)
   - this app is hosted at https://notionuploader-groa.onrender.com
     - [] provide the payload for me in the bruno Request subscription request, using the VM environment
 [] based on the webhook, download activity detail, minify or even gzip the json (should still read as utf8 string) and upload to notion database NOTION_WORKOUT_DATABASE_ID
-  - Notion database has columns Name, Date and Attachment
+  - Notion database has columns defined in ./examples/notion-strava-workouts-db.csv
+  - Some metrics need to be calculated (HR drift, VO2MAX minutes), use splits_metric from ./examples/activity-detail-example.json
+    - you will need some data from NOTION_ATHLETE_PROFILE_DATABASE_ID, which has columns as described in ./examples/notion-athlete-profile-db.csv
+      - only take the top 1 queried page, when sorted by descending Date
+[] prepare an output model, mapping and implementation, which will load database entries for last N days from NOTION_WORKOUT_DATABASE_ID and output for an LLM trainer/coach, who will use these data to assess my training plan compliance
 
 # Strava Webhook doc
 Strava
