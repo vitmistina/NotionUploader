@@ -396,6 +396,9 @@ async def test_get_workout_logs(respx_mock: respx.MockRouter) -> None:
             "Max Heartrate": {"number": 180},
             "HR drift [%]": {"number": 5.0},
             "VO2 MAX [min]": {"number": 10.0},
+            "TSS": {"number": 50.0},
+            "IF": {"number": 0.85},
+            "Notes": {"rich_text": [{"text": {"content": "Great ride"}}]},
         }
     }
     respx_mock.post(notion_url).mock(return_value=httpx.Response(200, json={"results": [page]}))
@@ -409,3 +412,57 @@ async def test_get_workout_logs(respx_mock: respx.MockRouter) -> None:
     data = response.json()
     assert data[0]["name"] == "Run"
     assert data[0]["hr_drift_percent"] == 5.0
+    assert data[0]["tss"] == 50.0
+    assert data[0]["intensity_factor"] == 0.85
+    assert data[0]["notes"] == "Great ride"
+
+
+@pytest.mark.asyncio
+async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> None:
+    from src import strava_activity as sa
+
+    async def fake_fetch_activity(activity_id: int) -> Dict[str, Any]:
+        return {
+            "splits_metric": [
+                {"average_heartrate": 100, "moving_time": 60},
+                {"average_heartrate": 100, "moving_time": 60},
+            ],
+            "laps": [
+                {"average_heartrate": 171, "moving_time": 60},
+                {"average_heartrate": 171, "moving_time": 60},
+                {"average_heartrate": 171, "moving_time": 60},
+            ],
+            "weighted_average_watts": 210,
+            "moving_time": 180,
+            "description": "desc",
+        }
+
+    async def fake_fetch_profile() -> Dict[str, Any]:
+        return {"ftp": 200, "max_hr": 190}
+
+    called: Dict[str, Any] = {}
+
+    async def fake_save(
+        detail: Dict[str, Any],
+        attachment: str,
+        hr_drift: float,
+        vo2: float,
+        *,
+        tss: Optional[float] = None,
+        intensity_factor: Optional[float] = None,
+    ) -> None:
+        called["vo2"] = vo2
+        called["tss"] = tss
+        called["if"] = intensity_factor
+        called["notes"] = detail.get("description")
+
+    monkeypatch.setattr(sa, "fetch_activity", fake_fetch_activity)
+    monkeypatch.setattr(sa, "fetch_latest_athlete_profile", fake_fetch_profile)
+    monkeypatch.setattr(sa, "save_workout_to_notion", fake_save)
+
+    await sa.process_activity(1)
+
+    assert called["vo2"] == pytest.approx(3.0)
+    assert called["if"] == pytest.approx(1.05)
+    assert called["tss"] == pytest.approx(5.5125)
+    assert called["notes"] == "desc"
