@@ -1,0 +1,115 @@
+from __future__ import annotations
+
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+import httpx
+
+from .config import (
+    NOTION_HEADERS,
+    NOTION_WORKOUT_DATABASE_ID,
+    NOTION_ATHLETE_PROFILE_DATABASE_ID,
+)
+from .models import WorkoutLog
+
+
+async def fetch_latest_athlete_profile() -> Dict[str, Any]:
+    """Fetch the latest athlete profile entry from Notion."""
+    url = f"https://api.notion.com/v1/databases/{NOTION_ATHLETE_PROFILE_DATABASE_ID}/query"
+    payload = {"sorts": [{"property": "Date", "direction": "descending"}], "page_size": 1}
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(url, json=payload, headers=NOTION_HEADERS)
+    resp.raise_for_status()
+    results = resp.json().get("results", [])
+    if not results:
+        return {}
+    props = results[0]["properties"]
+    return {
+        "ftp": props.get("FTP Watts", {}).get("number"),
+        "weight": props.get("Weight Kg", {}).get("number"),
+        "max_hr": props.get("Max HR", {}).get("number"),
+    }
+
+
+def _add_number_prop(props: Dict[str, Any], name: str, value: Optional[float]) -> None:
+    if value is not None:
+        props[name] = {"number": value}
+
+
+async def save_workout_to_notion(
+    detail: Dict[str, Any], attachment: str, hr_drift: float, vo2max: float
+) -> None:
+    """Store a Strava activity detail in the workout database."""
+    start_date = detail.get("start_date")
+    date_only = start_date.split("T")[0] if start_date else datetime.utcnow().date().isoformat()
+    day_of_week = datetime.fromisoformat(date_only).strftime("%A")
+
+    props: Dict[str, Any] = {
+        "Name": {"title": [{"text": {"content": detail.get("name", "")}}]},
+        "Date": {"date": {"start": date_only}},
+        "Attachment": {"rich_text": [{"text": {"content": attachment}}]},
+        "Duration [s]": {"number": detail.get("elapsed_time")},
+        "Distance [m]": {"number": detail.get("distance")},
+        "Elevation [m]": {"number": detail.get("total_elevation_gain")},
+        "Type": {"select": {"name": detail.get("type", "")}},
+        "Id": {"number": detail.get("id")},
+        "Day of week": {"select": {"name": day_of_week}},
+    }
+
+    _add_number_prop(props, "Average Cadence", detail.get("average_cadence"))
+    _add_number_prop(props, "Average Watts", detail.get("average_watts"))
+    _add_number_prop(props, "Weighted Average Watts", detail.get("weighted_average_watts"))
+    _add_number_prop(props, "Kilojoules", detail.get("kilojoules"))
+    _add_number_prop(props, "Kcal", detail.get("calories"))
+    _add_number_prop(props, "Average Heartrate", detail.get("average_heartrate"))
+    _add_number_prop(props, "Max Heartrate", detail.get("max_heartrate"))
+    _add_number_prop(props, "HR drift [%]", hr_drift)
+    _add_number_prop(props, "VO2 MAX [min]", vo2max)
+
+    payload = {"parent": {"database_id": NOTION_WORKOUT_DATABASE_ID}, "properties": props}
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            "https://api.notion.com/v1/pages", json=payload, headers=NOTION_HEADERS
+        )
+    resp.raise_for_status()
+
+
+def _parse_workout_page(page: Dict[str, Any]) -> Optional[WorkoutLog]:
+    props = page["properties"]
+    try:
+        return WorkoutLog(
+            name=props["Name"]["title"][0]["text"]["content"] if props["Name"]["title"] else "",
+            date=props["Date"]["date"]["start"] if props["Date"]["date"] else "",
+            duration_s=props["Duration [s]"]["number"],
+            distance_m=props["Distance [m]"]["number"],
+            elevation_m=props["Elevation [m]"]["number"],
+            type=props["Type"]["select"]["name"] if props["Type"]["select"] else "",
+            average_cadence=props.get("Average Cadence", {}).get("number"),
+            average_watts=props.get("Average Watts", {}).get("number"),
+            weighted_average_watts=props.get("Weighted Average Watts", {}).get("number"),
+            kilojoules=props.get("Kilojoules", {}).get("number"),
+            kcal=props.get("Kcal", {}).get("number"),
+            average_heartrate=props.get("Average Heartrate", {}).get("number"),
+            max_heartrate=props.get("Max Heartrate", {}).get("number"),
+            hr_drift_percent=props.get("HR drift [%]", {}).get("number"),
+            vo2max_minutes=props.get("VO2 MAX [min]", {}).get("number"),
+        )
+    except Exception:
+        return None
+
+
+async def fetch_workouts_from_notion(days: int) -> List[WorkoutLog]:
+    """Return workouts from the workout database for the last ``days`` days."""
+    start = (datetime.utcnow() - timedelta(days=days)).date().isoformat()
+    url = f"https://api.notion.com/v1/databases/{NOTION_WORKOUT_DATABASE_ID}/query"
+    payload = {"filter": {"property": "Date", "date": {"on_or_after": start}}}
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(url, json=payload, headers=NOTION_HEADERS)
+    resp.raise_for_status()
+    results = resp.json().get("results", [])
+    workouts: List[WorkoutLog] = []
+    for page in results:
+        w = _parse_workout_page(page)
+        if w:
+            workouts.append(w)
+    return workouts

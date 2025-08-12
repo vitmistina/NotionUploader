@@ -5,6 +5,8 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 import json
+import hmac
+import hashlib
 import pytest
 import respx
 from fastapi import FastAPI
@@ -23,6 +25,9 @@ os.environ["CLIENT_ID"] = "oauth-client-id"
 os.environ["CUSTOMER_SECRET"] = "oauth-secret"
 os.environ["STRAVA_CLIENT_ID"] = "strava-client-id"
 os.environ["STRAVA_CLIENT_SECRET"] = "strava-client-secret"
+os.environ["NOTION_WORKOUT_DATABASE_ID"] = "workout-db123"
+os.environ["NOTION_ATHLETE_PROFILE_DATABASE_ID"] = "profile-db123"
+os.environ["STRAVA_VERIFY_TOKEN"] = "verify-token"
 
 # Ensure the repository root is on the Python path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -303,3 +308,84 @@ async def test_openapi_schema() -> None:
             op: Any = operation
             if isinstance(op, dict) and "parameters" in op:
                 assert all(p["name"] != "x-api-key" for p in op["parameters"])
+
+
+@pytest.mark.asyncio
+async def test_strava_webhook_verification() -> None:
+    transport = httpx.ASGITransport(app=app)
+    params = {
+        "hub.mode": "subscribe",
+        "hub.challenge": "abc",
+        "hub.verify_token": "verify-token",
+    }
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get("/strava-webhook", params=params)
+    assert response.status_code == 200
+    assert response.json() == {"hub.challenge": "abc"}
+
+
+@pytest.mark.asyncio
+async def test_strava_webhook_event(monkeypatch) -> None:
+    called: Dict[str, Any] = {}
+
+    async def fake_process(activity_id: int) -> None:
+        called["id"] = activity_id
+
+    from src import strava_webhook as webhook
+
+    monkeypatch.setattr(webhook, "process_activity", fake_process)
+
+    payload = {
+        "aspect_type": "create",
+        "event_time": 1,
+        "object_id": 42,
+        "object_type": "activity",
+        "owner_id": 1,
+        "subscription_id": 1,
+    }
+    body = json.dumps(payload).encode()
+    signature = hmac.new(
+        b"strava-client-secret", body, hashlib.sha256
+    ).hexdigest()
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/strava-webhook", content=body, headers={"X-Strava-Signature": signature}
+        )
+    assert response.status_code == 200
+    assert called["id"] == 42
+
+
+@pytest.mark.asyncio
+async def test_get_workout_logs(respx_mock: respx.MockRouter) -> None:
+    notion_url = "https://api.notion.com/v1/databases/workout-db123/query"
+    page = {
+        "properties": {
+            "Name": {"title": [{"text": {"content": "Run"}}]},
+            "Date": {"date": {"start": "2023-01-01"}},
+            "Duration [s]": {"number": 3600},
+            "Distance [m]": {"number": 10000},
+            "Elevation [m]": {"number": 50},
+            "Type": {"select": {"name": "Run"}},
+            "Average Cadence": {"number": 80},
+            "Average Watts": {"number": 200},
+            "Weighted Average Watts": {"number": 210},
+            "Kilojoules": {"number": 500},
+            "Kcal": {"number": 480},
+            "Average Heartrate": {"number": 150},
+            "Max Heartrate": {"number": 180},
+            "HR drift [%]": {"number": 5.0},
+            "VO2 MAX [min]": {"number": 10.0},
+        }
+    }
+    respx_mock.post(notion_url).mock(return_value=httpx.Response(200, json={"results": [page]}))
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.get(
+            "/v2/workout-logs", headers={"x-api-key": "test-key"}
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert data[0]["name"] == "Run"
+    assert data[0]["hr_drift_percent"] == 5.0

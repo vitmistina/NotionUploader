@@ -21,6 +21,11 @@ def get_env_var(name: str) -> str:
 API_KEY: str = get_env_var("API_KEY")
 NOTION_SECRET: str = get_env_var("LLM_Update")
 NOTION_DATABASE_ID: str = get_env_var("NOTION_DATABASE_ID")
+NOTION_WORKOUT_DATABASE_ID: str = get_env_var("NOTION_WORKOUT_DATABASE_ID")
+NOTION_ATHLETE_PROFILE_DATABASE_ID: str = get_env_var(
+    "NOTION_ATHLETE_PROFILE_DATABASE_ID"
+)
+STRAVA_VERIFY_TOKEN: str = get_env_var("STRAVA_VERIFY_TOKEN")
 
 NOTION_HEADERS: Final[Dict[str, str]] = {
     "Authorization": f"Bearer {NOTION_SECRET}",
