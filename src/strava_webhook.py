@@ -27,9 +27,7 @@ async def verify_subscription(
 async def strava_event(request: Request) -> dict[str, str]:
     body = await request.body()
     event = json.loads(body)
-    if event.get("object_type") == "activity" and event.get("aspect_type") in {
-        "create",
-        "update",
-    }:
-        await process_activity(int(event["object_id"]))
+    aspect = event.get("aspect_type")
+    if event.get("object_type") == "activity" and aspect in {"create", "update"}:
+        await process_activity(int(event["object_id"]), update=aspect == "update")
     return {"status": "ok"}
