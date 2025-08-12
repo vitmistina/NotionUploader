@@ -6,8 +6,15 @@ meta {
 
 post {
   url: https://www.strava.com/api/v3/push_subscriptions
-  body: none
+  body: formUrlEncoded
   auth: inherit
+}
+
+body:form-urlencoded {
+  client_id: {{STRAVA_CLIENT_ID}}
+  client_secret: {{STRAVA_CLIENT_SECRET}}
+  callback_url: https://notionuploader-groa.onrender.com/strava-webhook
+  verify_token: {{verify_token}}
 }
 
 settings {

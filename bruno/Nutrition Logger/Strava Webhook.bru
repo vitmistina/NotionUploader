@@ -1,0 +1,15 @@
+meta {
+  name: Strava Webhook
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/strava-webhook
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}

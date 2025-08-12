@@ -17,6 +17,7 @@ from .notion import entries_on_date, submit_to_notion
 from .nutrition import get_daily_nutrition_summaries
 from .withings import get_measurements
 from .strava import get_activities
+from .strava_activity import process_activity
 from .workout_notion import fetch_workouts_from_notion
 
 router: APIRouter = APIRouter(prefix="/v2")
@@ -67,6 +68,12 @@ async def list_logged_workouts(
     days: int = Query(7, description="Number of days of logged workouts to retrieve."),
 ) -> List[WorkoutLog]:
     return await fetch_workouts_from_notion(days)
+
+
+@router.post("/strava-activity/{activity_id}", include_in_schema=False)
+async def trigger_strava_processing(activity_id: int) -> Dict[str, str]:
+    await process_activity(activity_id)
+    return {"status": "ok"}
 
 @router.get("/api-schema")
 async def get_api_schema(request: Request) -> JSONResponse:
