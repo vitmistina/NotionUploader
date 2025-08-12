@@ -10,13 +10,11 @@ from .models import (
     DailyNutritionSummary,
     NutritionEntry,
     StatusResponse,
-    Workout,
     WorkoutLog,
 )
 from .notion import entries_on_date, submit_to_notion
 from .nutrition import get_daily_nutrition_summaries
 from .withings import get_measurements
-from .strava import get_activities
 from .strava_activity import process_activity
 from .workout_notion import fetch_workouts_from_notion
 
@@ -54,13 +52,6 @@ async def list_body_measurements(
     Default is 7 days of measurements.
     """
     return await get_measurements(days)
-
-
-@router.get("/workouts", response_model=List[Workout])
-async def list_workouts(
-    days: int = Query(7, description="Number of days of workouts to retrieve."),
-) -> List[Workout]:
-    return await get_activities(days)
 
 
 @router.get("/workout-logs", response_model=List[WorkoutLog])
