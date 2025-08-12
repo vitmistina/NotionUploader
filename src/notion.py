@@ -23,10 +23,15 @@ async def submit_to_notion(entry: NutritionEntry) -> StatusResponse:
             "Notes": {"rich_text": [{"text": {"content": entry.notes}}]},
         },
     }
-    async with httpx.AsyncClient() as client:
-        response: httpx.Response = await client.post(
-            "https://api.notion.com/v1/pages", json=payload, headers=NOTION_HEADERS
-        )
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response: httpx.Response = await client.post(
+                "https://api.notion.com/v1/pages",
+                json=payload,
+                headers=NOTION_HEADERS,
+            )
+    except httpx.ReadTimeout as exc:  # pragma: no cover - network failure
+        raise HTTPException(status_code=504, detail="Request to Notion timed out") from exc
     if response.status_code != 200:
         raise HTTPException(status_code=response.status_code, detail=response.text)
     return StatusResponse(status="success")
@@ -55,10 +60,15 @@ def parse_page(page: Dict[str, Any]) -> Optional[NutritionEntry]:
 
 async def query_entries(filter_payload: Dict[str, Any]) -> List[NutritionEntry]:
     notion_url: str = f"https://api.notion.com/v1/databases/{NOTION_DATABASE_ID}/query"
-    async with httpx.AsyncClient() as client:
-        response: httpx.Response = await client.post(
-            notion_url, json={"filter": filter_payload}, headers=NOTION_HEADERS
-        )
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response: httpx.Response = await client.post(
+                notion_url,
+                json={"filter": filter_payload},
+                headers=NOTION_HEADERS,
+            )
+    except httpx.ReadTimeout as exc:  # pragma: no cover - network failure
+        raise HTTPException(status_code=504, detail="Request to Notion timed out") from exc
     if response.status_code != 200:
         raise HTTPException(status_code=response.status_code, detail=response.text)
     results: List[Dict[str, Any]] = response.json().get("results", [])

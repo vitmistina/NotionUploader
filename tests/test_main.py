@@ -222,6 +222,19 @@ async def test_get_foods_range(respx_mock: respx.MockRouter) -> None:
 
 
 @pytest.mark.asyncio
+async def test_get_foods_by_date_timeout(respx_mock: respx.MockRouter) -> None:
+    notion_url: str = "https://api.notion.com/v1/databases/db123/query"
+    respx_mock.post(notion_url).mock(side_effect=httpx.ReadTimeout("timeout"))
+    transport: httpx.ASGITransport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response: httpx.Response = await client.get(
+            "/v2/nutrition-entries/daily/2023-01-01",
+            headers={"x-api-key": "test-key"},
+        )
+    assert response.status_code == 504
+
+
+@pytest.mark.asyncio
 async def test_openapi_schema() -> None:
     transport: httpx.ASGITransport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
@@ -397,9 +410,21 @@ async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> N
                 {"average_heartrate": 100, "moving_time": 60},
             ],
             "laps": [
-                {"average_heartrate": 171, "moving_time": 60},
-                {"average_heartrate": 171, "moving_time": 60},
-                {"average_heartrate": 171, "moving_time": 60},
+                {
+                    "average_heartrate": 190,
+                    "moving_time": 60,
+                    "max_heartrate": 190,
+                },
+                {
+                    "average_heartrate": 190,
+                    "moving_time": 60,
+                    "max_heartrate": 190,
+                },
+                {
+                    "average_heartrate": 190,
+                    "moving_time": 60,
+                    "max_heartrate": 190,
+                },
             ],
             "weighted_average_watts": 210,
             "moving_time": 180,
