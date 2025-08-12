@@ -357,6 +357,26 @@ async def test_strava_webhook_event(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_manual_strava_processing(monkeypatch) -> None:
+    called: Dict[str, Any] = {}
+
+    async def fake_process(activity_id: int) -> None:
+        called["id"] = activity_id
+
+    from src import routes as routes_module
+
+    monkeypatch.setattr(routes_module, "process_activity", fake_process)
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/v2/strava-activity/99", headers={"x-api-key": "test-key"}
+        )
+    assert response.status_code == 200
+    assert called["id"] == 99
+
+
+@pytest.mark.asyncio
 async def test_get_workout_logs(respx_mock: respx.MockRouter) -> None:
     notion_url = "https://api.notion.com/v1/databases/workout-db123/query"
     page = {

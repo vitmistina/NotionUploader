@@ -47,7 +47,6 @@ async def save_workout_to_notion(
     props: Dict[str, Any] = {
         "Name": {"title": [{"text": {"content": detail.get("name", "")}}]},
         "Date": {"date": {"start": date_only}},
-        "Attachment": {"rich_text": [{"text": {"content": attachment}}]},
         "Duration [s]": {"number": detail.get("elapsed_time")},
         "Distance [m]": {"number": detail.get("distance")},
         "Elevation [m]": {"number": detail.get("total_elevation_gain")},
@@ -83,7 +82,7 @@ def _parse_workout_page(page: Dict[str, Any]) -> Optional[WorkoutLog]:
             duration_s=props["Duration [s]"]["number"],
             distance_m=props["Distance [m]"]["number"],
             elevation_m=props["Elevation [m]"]["number"],
-            type=props["Type"]["select"]["name"] if props["Type"]["select"] else "",
+            type=props["Type"]["rich_text"][0]["text"]["content"] if props["Type"]["rich_text"] else "",
             average_cadence=props.get("Average Cadence", {}).get("number"),
             average_watts=props.get("Average Watts", {}).get("number"),
             weighted_average_watts=props.get("Weighted Average Watts", {}).get("number"),
