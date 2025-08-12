@@ -328,8 +328,9 @@ async def test_strava_webhook_verification() -> None:
 async def test_strava_webhook_event(monkeypatch) -> None:
     called: Dict[str, Any] = {}
 
-    async def fake_process(activity_id: int) -> None:
+    async def fake_process(activity_id: int, *, update: bool = False) -> None:
         called["id"] = activity_id
+        called["update"] = update
 
     from src import strava_webhook as webhook
 
@@ -354,6 +355,41 @@ async def test_strava_webhook_event(monkeypatch) -> None:
         )
     assert response.status_code == 200
     assert called["id"] == 42
+    assert called["update"] is False
+
+
+@pytest.mark.asyncio
+async def test_strava_webhook_event_update(monkeypatch) -> None:
+    called: Dict[str, Any] = {}
+
+    async def fake_process(activity_id: int, *, update: bool = False) -> None:
+        called["id"] = activity_id
+        called["update"] = update
+
+    from src import strava_webhook as webhook
+
+    monkeypatch.setattr(webhook, "process_activity", fake_process)
+
+    payload = {
+        "aspect_type": "update",
+        "event_time": 1,
+        "object_id": 43,
+        "object_type": "activity",
+        "owner_id": 1,
+        "subscription_id": 1,
+    }
+    body = json.dumps(payload).encode()
+    signature = hmac.new(
+        b"strava-client-secret", body, hashlib.sha256
+    ).hexdigest()
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            "/strava-webhook", content=body, headers={"X-Strava-Signature": signature}
+        )
+    assert response.status_code == 200
+    assert called["id"] == 43
+    assert called["update"] is True
 
 
 @pytest.mark.asyncio
@@ -450,6 +486,7 @@ async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> N
         *,
         tss: Optional[float] = None,
         intensity_factor: Optional[float] = None,
+        update: bool = False,
     ) -> None:
         called["vo2"] = vo2
         called["tss"] = tss
@@ -466,3 +503,37 @@ async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> N
     assert called["if"] == pytest.approx(1.05)
     assert called["tss"] == pytest.approx(5.5125)
     assert called["notes"] == "desc"
+
+
+@pytest.mark.asyncio
+async def test_save_workout_to_notion_updates_existing(respx_mock: respx.MockRouter) -> None:
+    from src import workout_notion as wn
+
+    detail = {"id": 123, "name": "Ride"}
+    query_url = "https://api.notion.com/v1/databases/workout-db123/query"
+    respx_mock.post(query_url).mock(
+        return_value=httpx.Response(200, json={"results": [{"id": "page123"}]})
+    )
+    patch_route = respx_mock.patch("https://api.notion.com/v1/pages/page123").mock(
+        return_value=httpx.Response(200, json={"id": "page123"})
+    )
+
+    await wn.save_workout_to_notion(detail, "", 0.0, 0.0, update=True)
+
+    assert patch_route.called
+
+
+@pytest.mark.asyncio
+async def test_save_workout_to_notion_inserts_when_missing(respx_mock: respx.MockRouter) -> None:
+    from src import workout_notion as wn
+
+    detail = {"id": 321, "name": "Ride"}
+    query_url = "https://api.notion.com/v1/databases/workout-db123/query"
+    respx_mock.post(query_url).mock(return_value=httpx.Response(200, json={"results": []}))
+    post_route = respx_mock.post("https://api.notion.com/v1/pages").mock(
+        return_value=httpx.Response(200, json={"id": "page321"})
+    )
+
+    await wn.save_workout_to_notion(detail, "", 0.0, 0.0, update=True)
+
+    assert post_route.called
