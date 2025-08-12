@@ -6,18 +6,10 @@ import json
 
 from fastapi import APIRouter, HTTPException, Request, Query
 
-from .config import STRAVA_CLIENT_SECRET, STRAVA_VERIFY_TOKEN
+from .config import STRAVA_VERIFY_TOKEN
 from .strava_activity import process_activity
 
 webhook_router = APIRouter()
-
-
-def _verify_signature(payload: bytes, signature: str | None) -> None:
-    expected = hmac.new(
-        STRAVA_CLIENT_SECRET.encode(), payload, hashlib.sha256
-    ).hexdigest()
-    if not signature or not hmac.compare_digest(expected, signature):
-        raise HTTPException(status_code=401, detail="Invalid signature")
 
 
 @webhook_router.get("/strava-webhook", include_in_schema=False)
@@ -34,7 +26,6 @@ async def verify_subscription(
 @webhook_router.post("/strava-webhook", include_in_schema=False)
 async def strava_event(request: Request) -> dict[str, str]:
     body = await request.body()
-    _verify_signature(body, request.headers.get("X-Strava-Signature"))
     event = json.loads(body)
     if event.get("object_type") == "activity" and event.get("aspect_type") in {
         "create",
