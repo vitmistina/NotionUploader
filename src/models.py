@@ -151,6 +151,9 @@ class WorkoutLog(BaseModel):
     max_heartrate: Optional[float] = None
     hr_drift_percent: Optional[float] = None
     vo2max_minutes: Optional[float] = None
+    tss: Optional[float] = None
+    intensity_factor: Optional[float] = None
+    notes: Optional[str] = None
 
 
 class NutritionEntry(BaseModel):

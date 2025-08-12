@@ -37,7 +37,13 @@ def _add_number_prop(props: Dict[str, Any], name: str, value: Optional[float]) -
 
 
 async def save_workout_to_notion(
-    detail: Dict[str, Any], attachment: str, hr_drift: float, vo2max: float
+    detail: Dict[str, Any],
+    attachment: str,
+    hr_drift: float,
+    vo2max: float,
+    *,
+    tss: Optional[float] = None,
+    intensity_factor: Optional[float] = None,
 ) -> None:
     """Store a Strava activity detail in the workout database."""
     start_date = detail.get("start_date")
@@ -64,6 +70,12 @@ async def save_workout_to_notion(
     _add_number_prop(props, "Max Heartrate", detail.get("max_heartrate"))
     _add_number_prop(props, "HR drift [%]", hr_drift)
     _add_number_prop(props, "VO2 MAX [min]", vo2max)
+    _add_number_prop(props, "TSS", tss)
+    _add_number_prop(props, "IF", intensity_factor)
+
+    description = detail.get("description")
+    if description:
+        props["Notes"] = {"rich_text": [{"text": {"content": description}}]}
 
     payload = {"parent": {"database_id": NOTION_WORKOUT_DATABASE_ID}, "properties": props}
     async with httpx.AsyncClient() as client:
@@ -76,13 +88,19 @@ async def save_workout_to_notion(
 def _parse_workout_page(page: Dict[str, Any]) -> Optional[WorkoutLog]:
     props = page["properties"]
     try:
+        type_value = ""
+        if props.get("Type", {}).get("rich_text"):
+            type_value = props["Type"]["rich_text"][0]["text"]["content"]
+        elif props.get("Type", {}).get("select"):
+            type_value = props["Type"]["select"]["name"]
+
         return WorkoutLog(
             name=props["Name"]["title"][0]["text"]["content"] if props["Name"]["title"] else "",
             date=props["Date"]["date"]["start"] if props["Date"]["date"] else "",
             duration_s=props["Duration [s]"]["number"],
             distance_m=props["Distance [m]"]["number"],
             elevation_m=props["Elevation [m]"]["number"],
-            type=props["Type"]["rich_text"][0]["text"]["content"] if props["Type"]["rich_text"] else "",
+            type=type_value,
             average_cadence=props.get("Average Cadence", {}).get("number"),
             average_watts=props.get("Average Watts", {}).get("number"),
             weighted_average_watts=props.get("Weighted Average Watts", {}).get("number"),
@@ -92,6 +110,16 @@ def _parse_workout_page(page: Dict[str, Any]) -> Optional[WorkoutLog]:
             max_heartrate=props.get("Max Heartrate", {}).get("number"),
             hr_drift_percent=props.get("HR drift [%]", {}).get("number"),
             vo2max_minutes=props.get("VO2 MAX [min]", {}).get("number"),
+            tss=props.get("TSS", {}).get("number"),
+            intensity_factor=props.get("IF", {}).get("number"),
+            notes=(
+                props.get("Notes", {})
+                .get("rich_text", [{}])[0]
+                .get("text", {})
+                .get("content")
+                if props.get("Notes", {}).get("rich_text")
+                else None
+            ),
         )
     except Exception:
         return None
