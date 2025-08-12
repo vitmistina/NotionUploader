@@ -1,0 +1,22 @@
+meta {
+  name: List Activities
+  type: http
+  seq: 2
+}
+
+get {
+  url: https://www.strava.com/api/v3/athlete/activities?before=&after=&page=&per_page=
+  body: none
+  auth: inherit
+}
+
+params:query {
+  before: 
+  after: 
+  page: 
+  per_page: 
+}
+
+settings {
+  encodeUrl: true
+}

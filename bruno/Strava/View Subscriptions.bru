@@ -1,0 +1,20 @@
+meta {
+  name: View Subscriptions
+  type: http
+  seq: 4
+}
+
+get {
+  url: https://www.strava.com/api/v3/push_subscriptions?client_id={{STRAVA_CLIENT_ID}}&client_secret={{STRAVA_CLIENT_SECRET}}
+  body: none
+  auth: inherit
+}
+
+params:query {
+  client_id: {{STRAVA_CLIENT_ID}}
+  client_secret: {{STRAVA_CLIENT_SECRET}}
+}
+
+settings {
+  encodeUrl: true
+}

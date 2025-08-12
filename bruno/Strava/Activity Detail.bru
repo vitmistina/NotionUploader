@@ -1,0 +1,19 @@
+meta {
+  name: Activity Detail
+  type: http
+  seq: 1
+}
+
+get {
+  url: https://www.strava.com/api/v3/activities/{{id}}?include_all_efforts=
+  body: none
+  auth: inherit
+}
+
+params:query {
+  include_all_efforts: 
+}
+
+settings {
+  encodeUrl: true
+}

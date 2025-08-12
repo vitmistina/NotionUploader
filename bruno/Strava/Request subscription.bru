@@ -1,0 +1,15 @@
+meta {
+  name: Request subscription
+  type: http
+  seq: 5
+}
+
+post {
+  url: https://www.strava.com/api/v3/push_subscriptions
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+}
