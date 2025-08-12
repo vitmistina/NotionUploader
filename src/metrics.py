@@ -76,14 +76,78 @@ def hr_drift_from_splits(splits: List[dict[str, Any]]) -> float:
     return (second_avg - first_avg) / first_avg * 100
 
 
-def vo2max_minutes(splits: List[dict[str, Any]], max_hr: Optional[float]) -> float:
-    """Estimate minutes spent in VO2MAX zone (>=90% max HR)."""
-    if not splits or not max_hr:
+def vo2max_minutes(
+    splits: List[dict[str, Any]],
+    max_hr: Optional[float],
+    vo2_threshold_fraction_of_hrmax: float = 0.88,  # Lowered from 0.90 for better sensitivity
+    kinetics_time_constant_seconds: float = 30.0,  # Lowered from 45.0 for faster HR response
+    peak_influence_cap: float = 0.70  # Increased from 0.60 for more peak influence
+) -> float:
+    """
+    Estimate total minutes spent at/above a VO2max heart-rate threshold from split-level data.
+    
+    Uses a sophisticated blended evidence approach that considers:
+    1. Average heart rate as evidence of sustained time >= threshold
+    2. Peak heart rate as evidence that some portion touched >= threshold
+    3. Heart rate kinetics modeling to account for HR lag on short efforts
+    
+    Args:
+        splits: List of dicts containing at least:
+            - "moving_time" (seconds)
+            - "average_heartrate" (bpm)
+            - "max_heartrate" (bpm)
+        max_hr: Athlete's maximum heart rate in bpm
+        vo2_threshold_fraction_of_hrmax: VO2 threshold as fraction of HRmax (0.88-0.90)
+        kinetics_time_constant_seconds: Time constant for HR lag model (30-60s typical)
+        peak_influence_cap: Max contribution of peak HR evidence (0.4-0.7 typical)
+    
+    Returns:
+        Estimated total minutes spent at/above VO2max intensity
+    """
+    from math import exp
+
+    def clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
+        return max(low, min(high, value))
+
+    def relative_excess_above_threshold(x_fraction_of_hrmax: float) -> float:
+        """Map HR (as fraction of HRmax) to 'excess over threshold' in [0,1]."""
+        numerator = x_fraction_of_hrmax - vo2_threshold_fraction_of_hrmax
+        denominator = 1.0 - vo2_threshold_fraction_of_hrmax
+        if denominator <= 0:
+            return 0.0
+        return clamp(numerator / denominator)
+
+    if not splits or not max_hr or max_hr <= 0:
         return 0.0
-    threshold = 0.9 * max_hr
-    seconds = sum(
-        s.get("moving_time", 0)
-        for s in splits
-        if s.get("average_heartrate", 0) >= threshold
-    )
-    return seconds / 60
+
+    total_vo2_seconds: float = 0.0
+
+    for split in splits:
+        lap_seconds = split.get("moving_time", 0)
+        avg_hr = split.get("average_heartrate", 0)
+        peak_hr = split.get("max_heartrate", 0)
+
+        if lap_seconds <= 0 or avg_hr <= 0 or peak_hr <= 0:
+            continue
+
+        # Convert HRs to fractions of max
+        avg_fraction_of_hrmax = avg_hr / max_hr
+        peak_fraction_of_hrmax = peak_hr / max_hr
+
+        # Calculate evidence from average and peak HR
+        avg_evidence = relative_excess_above_threshold(avg_fraction_of_hrmax)
+        peak_evidence = relative_excess_above_threshold(peak_fraction_of_hrmax)
+
+        # Calculate HR settling factor to account for lag
+        settling_factor = 1.0 - exp(-lap_seconds / kinetics_time_constant_seconds)
+        settling_factor = clamp(settling_factor)
+
+        # Blend average and peak evidence
+        peak_add_back = peak_influence_cap * settling_factor * peak_evidence
+        fraction_in_vo2_zone = avg_evidence + (1.0 - avg_evidence) * peak_add_back
+        fraction_in_vo2_zone = clamp(fraction_in_vo2_zone)
+
+        # Accumulate time
+        total_vo2_seconds += fraction_in_vo2_zone * lap_seconds
+
+    return total_vo2_seconds / 60.0
