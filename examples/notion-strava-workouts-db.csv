@@ -1,3 +1,1 @@
-Name,Date,Attachment,Duration [s],Distance [m],Elevation [m],Type,Id,Day of week,Average Cadence,Average Watts,Weighted Average Watts,Kilojoules,Kcal,Average Heartrate,Max Heartrate,HR drift [%],VO2 MAX [min]
-,,,,,,,,,,,,,,,,,
-a,"August 12, 2025",Untitled-2.json.gz,,,,,,,,,,,,,,,
+Name,Date,Attachment,Duration [s],Distance [m],Elevation [m],Type,Id,Day of week,Average Cadence,Average Watts,Weighted Average Watts,Kilojoules,Kcal,Average Heartrate,Max Heartrate,HR drift [%],VO2 MAX [min], Notes, TSS, IF

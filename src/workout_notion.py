@@ -51,7 +51,7 @@ async def save_workout_to_notion(
         "Duration [s]": {"number": detail.get("elapsed_time")},
         "Distance [m]": {"number": detail.get("distance")},
         "Elevation [m]": {"number": detail.get("total_elevation_gain")},
-        "Type": {"select": {"name": detail.get("type", "")}},
+        "Type": {"rich_text": [{"text": {"content": str(detail.get("type", ""))}}]},
         "Id": {"number": detail.get("id")},
         "Day of week": {"select": {"name": day_of_week}},
     }
