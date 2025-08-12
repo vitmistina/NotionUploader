@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
-from typing import List
+from typing import Any, List, Optional
 
 from .models import BodyMeasurement, BodyMeasurementAverages
 
@@ -60,3 +60,30 @@ def add_moving_average(
             m.moving_average_7d = None
 
     return sorted_measurements
+
+
+def hr_drift_from_splits(splits: List[dict[str, Any]]) -> float:
+    """Calculate heart rate drift percentage from distance splits."""
+    if not splits:
+        return 0.0
+    half = len(splits) // 2
+    if half == 0:
+        return 0.0
+    first_avg = sum(s.get("average_heartrate", 0) for s in splits[:half]) / half
+    second_avg = sum(s.get("average_heartrate", 0) for s in splits[half:]) / (len(splits) - half)
+    if first_avg == 0:
+        return 0.0
+    return (second_avg - first_avg) / first_avg * 100
+
+
+def vo2max_minutes(splits: List[dict[str, Any]], max_hr: Optional[float]) -> float:
+    """Estimate minutes spent in VO2MAX zone (>=90% max HR)."""
+    if not splits or not max_hr:
+        return 0.0
+    threshold = 0.9 * max_hr
+    seconds = sum(
+        s.get("moving_time", 0)
+        for s in splits
+        if s.get("average_heartrate", 0) >= threshold
+    )
+    return seconds / 60

@@ -121,6 +121,38 @@ class Workout(BaseModel):
         )
 
 
+class StravaEvent(BaseModel):
+    """Payload sent by Strava webhook."""
+
+    aspect_type: str
+    event_time: int
+    object_id: int
+    object_type: str
+    owner_id: int
+    subscription_id: int
+    updates: Dict[str, Any] | None = None
+
+
+class WorkoutLog(BaseModel):
+    """Representation of a workout stored in Notion for LLM consumption."""
+
+    name: str
+    date: str
+    duration_s: float
+    distance_m: float
+    elevation_m: float
+    type: str
+    average_cadence: Optional[float] = None
+    average_watts: Optional[float] = None
+    weighted_average_watts: Optional[float] = None
+    kilojoules: Optional[float] = None
+    kcal: Optional[float] = None
+    average_heartrate: Optional[float] = None
+    max_heartrate: Optional[float] = None
+    hr_drift_percent: Optional[float] = None
+    vo2max_minutes: Optional[float] = None
+
+
 class NutritionEntry(BaseModel):
     food_item: str
     date: str  # Consider refining this to a date type later

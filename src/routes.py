@@ -11,11 +11,13 @@ from .models import (
     NutritionEntry,
     StatusResponse,
     Workout,
+    WorkoutLog,
 )
 from .notion import entries_on_date, submit_to_notion
 from .nutrition import get_daily_nutrition_summaries
 from .withings import get_measurements
 from .strava import get_activities
+from .workout_notion import fetch_workouts_from_notion
 
 router: APIRouter = APIRouter(prefix="/v2")
 
@@ -58,6 +60,13 @@ async def list_workouts(
     days: int = Query(7, description="Number of days of workouts to retrieve."),
 ) -> List[Workout]:
     return await get_activities(days)
+
+
+@router.get("/workout-logs", response_model=List[WorkoutLog])
+async def list_logged_workouts(
+    days: int = Query(7, description="Number of days of logged workouts to retrieve."),
+) -> List[WorkoutLog]:
+    return await fetch_workouts_from_notion(days)
 
 @router.get("/api-schema")
 async def get_api_schema(request: Request) -> JSONResponse:
