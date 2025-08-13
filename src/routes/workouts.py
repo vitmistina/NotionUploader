@@ -7,6 +7,7 @@ import asyncio
 from fastapi import APIRouter, Query, Depends
 
 from ..models.workout import ComplexAdvice, WorkoutLog
+from ..models.time import get_local_time
 from ..nutrition import get_daily_nutrition_summaries
 from ..settings import Settings, get_settings
 from ..withings import get_measurements
@@ -14,6 +15,7 @@ from ..workout_notion import (
     fetch_latest_athlete_profile,
     fetch_workouts_from_notion,
 )
+from .utils import timezone_query
 
 router: APIRouter = APIRouter()
 
@@ -29,6 +31,7 @@ async def list_logged_workouts(
 @router.get("/complex-advice", response_model=ComplexAdvice)
 async def get_complex_advice(
     days: int = Query(7, description="Number of days of data to retrieve."),
+    timezone: str = timezone_query,
     settings: Settings = Depends(get_settings),
 ) -> ComplexAdvice:
     end: date = date.today()
@@ -40,9 +43,12 @@ async def get_complex_advice(
     nutrition, metrics, workouts, athlete_metrics = await asyncio.gather(
         nutrition_coro, metrics_coro, workouts_coro, athlete_coro
     )
+    local_time, part = get_local_time(timezone)
     return ComplexAdvice(
         nutrition=nutrition,
         metrics=metrics,
         workouts=workouts,
         athlete_metrics=athlete_metrics,
+        local_time=local_time,
+        part_of_day=part,
     )

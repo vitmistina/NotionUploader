@@ -91,6 +91,18 @@
               "title": "Date"
             },
             "description": "Date to fetch in YYYY-MM-DD format."
+          },
+          {
+            "name": "timezone",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "IANA timezone for local time, defaults to Prague.",
+              "default": "Europe/Prague",
+              "title": "Timezone"
+            },
+            "description": "IANA timezone for local time, defaults to Prague."
           }
         ],
         "responses": {
@@ -99,11 +111,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/NutritionEntry"
-                  },
-                  "title": "Response List Daily Nutrition Entries V2 Nutrition Entries Daily  Date  Get"
+                  "$ref": "#/components/schemas/NutritionEntriesResponse"
                 }
               }
             }
@@ -152,6 +160,18 @@
               "title": "End Date"
             },
             "description": "End date (inclusive) in YYYY-MM-DD format."
+          },
+          {
+            "name": "timezone",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "IANA timezone for local time, defaults to Prague.",
+              "default": "Europe/Prague",
+              "title": "Timezone"
+            },
+            "description": "IANA timezone for local time, defaults to Prague."
           }
         ],
         "responses": {
@@ -160,11 +180,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DailyNutritionSummary"
-                  },
-                  "title": "Response List Nutrition Entries By Period V2 Nutrition Entries Period Get"
+                  "$ref": "#/components/schemas/NutritionPeriodResponse"
                 }
               }
             }
@@ -306,6 +322,18 @@
               "title": "Days"
             },
             "description": "Number of days of data to retrieve."
+          },
+          {
+            "name": "timezone",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "IANA timezone for local time, defaults to Prague.",
+              "default": "Europe/Prague",
+              "title": "Timezone"
+            },
+            "description": "IANA timezone for local time, defaults to Prague."
           }
         ],
         "responses": {
@@ -513,6 +541,22 @@
       },
       "ComplexAdvice": {
         "properties": {
+          "local_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Local Time",
+            "description": "Current local time with timezone"
+          },
+          "part_of_day": {
+            "type": "string",
+            "enum": [
+              "night",
+              "morning",
+              "afternoon",
+              "evening"
+            ],
+            "title": "Part Of Day"
+          },
           "nutrition": {
             "items": {
               "$ref": "#/components/schemas/DailyNutritionSummary"
@@ -540,6 +584,8 @@
         },
         "type": "object",
         "required": [
+          "local_time",
+          "part_of_day",
           "nutrition",
           "metrics",
           "workouts",
@@ -603,6 +649,41 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "NutritionEntriesResponse": {
+        "properties": {
+          "local_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Local Time",
+            "description": "Current local time with timezone"
+          },
+          "part_of_day": {
+            "type": "string",
+            "enum": [
+              "night",
+              "morning",
+              "afternoon",
+              "evening"
+            ],
+            "title": "Part Of Day"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/NutritionEntry"
+            },
+            "type": "array",
+            "title": "Entries"
+          }
+        },
+        "type": "object",
+        "required": [
+          "local_time",
+          "part_of_day",
+          "entries"
+        ],
+        "title": "NutritionEntriesResponse",
+        "description": "Response wrapper for a list of nutrition entries with timing context."
+      },
       "NutritionEntry": {
         "properties": {
           "food_item": {
@@ -659,6 +740,41 @@
           "notes"
         ],
         "title": "NutritionEntry"
+      },
+      "NutritionPeriodResponse": {
+        "properties": {
+          "local_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Local Time",
+            "description": "Current local time with timezone"
+          },
+          "part_of_day": {
+            "type": "string",
+            "enum": [
+              "night",
+              "morning",
+              "afternoon",
+              "evening"
+            ],
+            "title": "Part Of Day"
+          },
+          "nutrition": {
+            "items": {
+              "$ref": "#/components/schemas/DailyNutritionSummary"
+            },
+            "type": "array",
+            "title": "Nutrition"
+          }
+        },
+        "type": "object",
+        "required": [
+          "local_time",
+          "part_of_day",
+          "nutrition"
+        ],
+        "title": "NutritionPeriodResponse",
+        "description": "Response wrapper for a range of daily nutrition summaries with timing context."
       },
       "StatusResponse": {
         "properties": {

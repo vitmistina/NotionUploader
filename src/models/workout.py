@@ -5,6 +5,8 @@ from typing import Optional, Dict, Any, List
 
 from pydantic import BaseModel, Field
 
+from .time import TimeContext
+
 from .body import BodyMeasurement
 from .nutrition import DailyNutritionSummary
 
@@ -109,7 +111,7 @@ class AthleteMetrics(BaseModel):
     max_hr: Optional[float] = None
 
 
-class ComplexAdvice(BaseModel):
+class ComplexAdvice(TimeContext):
     """Combined nutrition, body metrics, workout data, and athlete metrics."""
 
     nutrition: List[DailyNutritionSummary]
