@@ -2,24 +2,23 @@ from typing import Optional
 
 import httpx
 from upstash_redis import Redis
-from .config import (
-    UPSTASH_REDIS_REST_URL,
-    UPSTASH_REDIS_REST_TOKEN,
-    STRAVA_CLIENT_ID,
-    STRAVA_CLIENT_SECRET,
-)
+from .settings import Settings
 
-redis = Redis(url=UPSTASH_REDIS_REST_URL, token=UPSTASH_REDIS_REST_TOKEN)
 
-async def refresh_access_token() -> Optional[str]:
+def get_redis(settings: Settings) -> Redis:
+    return Redis(url=settings.upstash_redis_rest_url, token=settings.upstash_redis_rest_token)
+
+
+async def refresh_access_token(settings: Settings) -> Optional[str]:
     """Refresh the Strava access token using the refresh token stored in Redis."""
+    redis = get_redis(settings)
     refresh_token = redis.get("strava_refresh_token")
     if not refresh_token:
         raise ValueError("No Strava refresh token found in Redis")
 
     payload = {
-        "client_id": STRAVA_CLIENT_ID,
-        "client_secret": STRAVA_CLIENT_SECRET,
+        "client_id": settings.strava_client_id,
+        "client_secret": settings.strava_client_secret,
         "grant_type": "refresh_token",
         "refresh_token": refresh_token,
     }

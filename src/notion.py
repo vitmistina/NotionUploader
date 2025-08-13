@@ -5,13 +5,18 @@ from typing import Any, Dict, List, Optional
 import httpx
 from fastapi import HTTPException
 
-from .config import NOTION_DATABASE_ID, NOTION_HEADERS
 from .models import NutritionEntry, StatusResponse
+from .settings import Settings
 
-async def submit_to_notion(entry: NutritionEntry) -> StatusResponse:
+async def submit_to_notion(entry: NutritionEntry, settings: Settings) -> StatusResponse:
     """Create a page in the configured Notion database for the entry."""
+    headers = {
+        "Authorization": f"Bearer {settings.notion_secret}",
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28",
+    }
     payload: Dict[str, Any] = {
-        "parent": {"database_id": NOTION_DATABASE_ID},
+        "parent": {"database_id": settings.notion_database_id},
         "properties": {
             "Food Item": {"title": [{"text": {"content": entry.food_item}}]},
             "Date": {"date": {"start": entry.date}},
@@ -28,7 +33,7 @@ async def submit_to_notion(entry: NutritionEntry) -> StatusResponse:
             response: httpx.Response = await client.post(
                 "https://api.notion.com/v1/pages",
                 json=payload,
-                headers=NOTION_HEADERS,
+                headers=headers,
             )
     except httpx.ReadTimeout as exc:  # pragma: no cover - network failure
         raise HTTPException(status_code=504, detail="Request to Notion timed out") from exc
@@ -58,14 +63,21 @@ def parse_page(page: Dict[str, Any]) -> Optional[NutritionEntry]:
     except Exception:
         return None
 
-async def query_entries(filter_payload: Dict[str, Any]) -> List[NutritionEntry]:
-    notion_url: str = f"https://api.notion.com/v1/databases/{NOTION_DATABASE_ID}/query"
+async def query_entries(
+    filter_payload: Dict[str, Any], settings: Settings
+) -> List[NutritionEntry]:
+    notion_url: str = f"https://api.notion.com/v1/databases/{settings.notion_database_id}/query"
+    headers = {
+        "Authorization": f"Bearer {settings.notion_secret}",
+        "Content-Type": "application/json",
+        "Notion-Version": "2022-06-28",
+    }
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response: httpx.Response = await client.post(
                 notion_url,
                 json={"filter": filter_payload},
-                headers=NOTION_HEADERS,
+                headers=headers,
             )
     except httpx.ReadTimeout as exc:  # pragma: no cover - network failure
         raise HTTPException(status_code=504, detail="Request to Notion timed out") from exc
@@ -79,15 +91,20 @@ async def query_entries(filter_payload: Dict[str, Any]) -> List[NutritionEntry]:
             entries.append(entry)
     return entries
 
-async def entries_on_date(date: str) -> List[NutritionEntry]:
-    return await query_entries({"property": "Date", "date": {"equals": date}})
+async def entries_on_date(date: str, settings: Settings) -> List[NutritionEntry]:
+    return await query_entries(
+        {"property": "Date", "date": {"equals": date}}, settings
+    )
 
-async def entries_in_range(start_date: str, end_date: str) -> List[NutritionEntry]:
+async def entries_in_range(
+    start_date: str, end_date: str, settings: Settings
+) -> List[NutritionEntry]:
     return await query_entries(
         {
             "and": [
                 {"property": "Date", "date": {"on_or_after": start_date}},
                 {"property": "Date", "date": {"on_or_before": end_date}},
             ]
-        }
+        },
+        settings,
     )

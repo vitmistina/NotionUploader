@@ -1,4 +1,3 @@
-import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -12,28 +11,29 @@ import respx
 from fastapi import FastAPI
 from openapi_spec_validator import validate
 
-# Set environment variables before importing the app
-os.environ["API_KEY"] = "test-key"
-os.environ["LLM_Update"] = "notion-secret"
-os.environ["NOTION_DATABASE_ID"] = "db123"
-os.environ["WBSAPI_URL"] = "https://wbs.example.com"
-os.environ["UPSTASH_REDIS_REST_URL"] = "https://redis.example.com"
-os.environ["UPSTASH_REDIS_REST_TOKEN"] = "token"
-os.environ["WITHINGS_CLIENT_ID"] = "client-id"
-os.environ["WITHINGS_CLIENT_SECRET"] = "client-secret"
-os.environ["CLIENT_ID"] = "oauth-client-id"
-os.environ["CUSTOMER_SECRET"] = "oauth-secret"
-os.environ["STRAVA_CLIENT_ID"] = "strava-client-id"
-os.environ["STRAVA_CLIENT_SECRET"] = "strava-client-secret"
-os.environ["NOTION_WORKOUT_DATABASE_ID"] = "workout-db123"
-os.environ["NOTION_ATHLETE_PROFILE_DATABASE_ID"] = "profile-db123"
-os.environ["STRAVA_VERIFY_TOKEN"] = "verify-token"
-
 # Ensure the repository root is on the Python path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import main
+from src.settings import Settings, get_settings
+
+test_settings = Settings(
+    api_key="test-key",
+    notion_secret="notion-secret",
+    notion_database_id="db123",
+    notion_workout_database_id="workout-db123",
+    notion_athlete_profile_database_id="profile-db123",
+    strava_verify_token="verify-token",
+    wbsapi_url="https://wbs.example.com",
+    upstash_redis_rest_url="https://redis.example.com",
+    upstash_redis_rest_token="token",
+    withings_client_id="client-id",
+    withings_client_secret="client-secret",
+    strava_client_id="strava-client-id",
+    strava_client_secret="strava-client-secret",
+)
 
 app: FastAPI = main.app
+app.dependency_overrides[get_settings] = lambda: test_settings
 
 
 @pytest.mark.asyncio
@@ -274,7 +274,7 @@ async def test_strava_webhook_verification() -> None:
 async def test_strava_webhook_event(monkeypatch) -> None:
     called: Dict[str, Any] = {}
 
-    async def fake_process(activity_id: int) -> None:
+    async def fake_process(activity_id: int, settings: Settings) -> None:
         called["id"] = activity_id
 
     from src import strava_webhook as webhook
@@ -306,7 +306,7 @@ async def test_strava_webhook_event(monkeypatch) -> None:
 async def test_strava_webhook_event_update(monkeypatch) -> None:
     called: Dict[str, Any] = {}
 
-    async def fake_process(activity_id: int) -> None:
+    async def fake_process(activity_id: int, settings: Settings) -> None:
         called["id"] = activity_id
 
     from src import strava_webhook as webhook
@@ -338,7 +338,7 @@ async def test_strava_webhook_event_update(monkeypatch) -> None:
 async def test_manual_strava_processing(monkeypatch) -> None:
     called: Dict[str, Any] = {}
 
-    async def fake_process(activity_id: int) -> None:
+    async def fake_process(activity_id: int, settings: Settings) -> None:
         called["id"] = activity_id
 
     from src import routes as routes_module
@@ -399,7 +399,7 @@ async def test_get_workout_logs(respx_mock: respx.MockRouter) -> None:
 async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> None:
     from src import strava_activity as sa
 
-    async def fake_fetch_activity(activity_id: int) -> Dict[str, Any]:
+    async def fake_fetch_activity(activity_id: int, settings: Settings) -> Dict[str, Any]:
         return {
             "splits_metric": [
                 {"average_heartrate": 100, "moving_time": 60},
@@ -427,7 +427,7 @@ async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> N
             "description": "desc",
         }
 
-    async def fake_fetch_profile() -> Dict[str, Any]:
+    async def fake_fetch_profile(settings: Settings) -> Dict[str, Any]:
         return {"ftp": 200, "max_hr": 190}
 
     called: Dict[str, Any] = {}
@@ -440,6 +440,7 @@ async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> N
         *,
         tss: Optional[float] = None,
         intensity_factor: Optional[float] = None,
+        settings: Settings,
     ) -> None:
         called["vo2"] = vo2
         called["tss"] = tss
@@ -450,7 +451,7 @@ async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> N
     monkeypatch.setattr(sa, "fetch_latest_athlete_profile", fake_fetch_profile)
     monkeypatch.setattr(sa, "save_workout_to_notion", fake_save)
 
-    await sa.process_activity(1)
+    await sa.process_activity(1, test_settings)
 
     assert called["vo2"] == pytest.approx(3.0)
     assert called["if"] == pytest.approx(1.05)
@@ -471,7 +472,7 @@ async def test_save_workout_to_notion_updates_existing(respx_mock: respx.MockRou
         return_value=httpx.Response(200, json={"id": "page123"})
     )
 
-    await wn.save_workout_to_notion(detail, "", 0.0, 0.0)
+    await wn.save_workout_to_notion(detail, "", 0.0, 0.0, settings=test_settings)
 
     assert patch_route.called
 
@@ -487,14 +488,16 @@ async def test_save_workout_to_notion_inserts_when_missing(respx_mock: respx.Moc
         return_value=httpx.Response(200, json={"id": "page321"})
     )
 
-    await wn.save_workout_to_notion(detail, "", 0.0, 0.0)
+    await wn.save_workout_to_notion(detail, "", 0.0, 0.0, settings=test_settings)
 
     assert post_route.called
 
 
 @pytest.mark.asyncio
 async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def fake_nutrition(start: str, end: str) -> List[Dict[str, Any]]:
+    async def fake_nutrition(
+        start: str, end: str, settings: Settings
+    ) -> List[Dict[str, Any]]:
         return [
             {
                 "date": "2023-01-01",
@@ -506,7 +509,7 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
             }
         ]
 
-    async def fake_metrics(days: int) -> List[Dict[str, Any]]:
+    async def fake_metrics(days: int, settings: Settings) -> List[Dict[str, Any]]:
         return [
             {
                 "measurement_time": "2023-01-01T00:00:00",
@@ -521,7 +524,7 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
             }
         ]
 
-    async def fake_workouts(days: int) -> List[Dict[str, Any]]:
+    async def fake_workouts(days: int, settings: Settings) -> List[Dict[str, Any]]:
         return [
             {
                 "name": "Run",
@@ -533,7 +536,7 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
             }
         ]
 
-    async def fake_athlete() -> Dict[str, Any]:
+    async def fake_athlete(settings: Settings) -> Dict[str, Any]:
         return {"ftp": 250.0, "weight": 70.0, "max_hr": 190.0}
 
     monkeypatch.setattr("src.routes.get_daily_nutrition_summaries", fake_nutrition)
