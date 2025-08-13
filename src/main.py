@@ -13,8 +13,8 @@ app: FastAPI = FastAPI(
 )
 
 
-@app.get("/", include_in_schema=False)
-@app.get("/healthz", include_in_schema=False)
+@app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
+@app.api_route("/healthz", methods=["GET", "HEAD"], include_in_schema=False)
 async def healthz() -> dict[str, str]:
     """Lightweight endpoint used for health checks."""
     return {"status": "ok"}
