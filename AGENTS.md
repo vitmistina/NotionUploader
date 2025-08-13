@@ -9,3 +9,7 @@
   ```bash
   pytest -q
   ```
+- As a recurring chore, remove unused imports and keep `requirements.txt` up to date:
+  ```bash
+  ruff check --select F401 src tests
+  ```

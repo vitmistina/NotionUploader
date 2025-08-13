@@ -1,5 +1,5 @@
 import time
-from typing import Dict, Any, Optional, List
+from typing import Optional, List
 import httpx
 from upstash_redis import Redis
 from datetime import datetime
