@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
-from .models import WorkoutLog
+from .models.workout import WorkoutLog
 from .settings import Settings
 
 

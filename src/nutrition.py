@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Dict, List
 
-from .models import DailyNutritionSummary, NutritionEntry
+from .models.nutrition import DailyNutritionSummary, NutritionEntry
 from .notion import entries_in_range
 from .settings import Settings
 

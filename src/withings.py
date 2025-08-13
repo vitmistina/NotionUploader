@@ -3,7 +3,7 @@ from typing import Dict, Any, Optional, List
 import httpx
 from upstash_redis import Redis
 from datetime import datetime
-from .models import BodyMeasurement
+from .models.body import BodyMeasurement
 from .metrics import add_moving_average
 from .settings import Settings
 

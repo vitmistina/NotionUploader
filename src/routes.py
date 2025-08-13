@@ -7,14 +7,13 @@ import asyncio
 from fastapi import APIRouter, Path, Query, Request, Depends
 from fastapi.responses import JSONResponse
 
-from .models import (
-    BodyMeasurement,
-    ComplexAdvice,
+from .models.body import BodyMeasurement
+from .models.nutrition import (
     DailyNutritionSummary,
     NutritionEntry,
     StatusResponse,
-    WorkoutLog,
 )
+from .models.workout import ComplexAdvice, WorkoutLog
 from .notion import entries_on_date, submit_to_notion
 from .nutrition import get_daily_nutrition_summaries
 from .withings import get_measurements

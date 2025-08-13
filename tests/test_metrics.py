@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.metrics import add_moving_average
-from src.models import BodyMeasurement
+from src.models.body import BodyMeasurement
 
 
 def make_measurement(day: int, value: float | None) -> BodyMeasurement:
