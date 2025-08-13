@@ -44,9 +44,13 @@ async def save_workout_to_notion(
     *,
     tss: Optional[float] = None,
     intensity_factor: Optional[float] = None,
-    update: bool = False,
 ) -> None:
-    """Store a Strava activity detail in the workout database."""
+    """Store a Strava activity detail in the workout database.
+
+    The function checks for an existing page with the same activity id and
+    updates it if found; otherwise a new page is created. This upsert semantics
+    avoids duplicate entries.
+    """
     start_date = detail.get("start_date")
     date_only = start_date.split("T")[0] if start_date else datetime.utcnow().date().isoformat()
     day_of_week = datetime.fromisoformat(date_only).strftime("%A")
@@ -78,30 +82,27 @@ async def save_workout_to_notion(
     if description:
         props["Notes"] = {"rich_text": [{"text": {"content": description}}]}
 
-    if update:
-        # Attempt to find an existing page with the same activity id and update it
-        query_url = f"https://api.notion.com/v1/databases/{NOTION_WORKOUT_DATABASE_ID}/query"
-        query_payload = {
-            "filter": {"property": "Id", "number": {"equals": detail.get("id")}},
-            "page_size": 1,
-        }
+    # Attempt to find an existing page with the same activity id and update it
+    query_url = f"https://api.notion.com/v1/databases/{NOTION_WORKOUT_DATABASE_ID}/query"
+    query_payload = {
+        "filter": {"property": "Id", "number": {"equals": detail.get("id")}},
+        "page_size": 1,
+    }
+    async with httpx.AsyncClient() as client:
+        query_resp = await client.post(query_url, json=query_payload, headers=NOTION_HEADERS)
+    query_resp.raise_for_status()
+    results = query_resp.json().get("results", [])
+    if results:
+        page_id = results[0]["id"]
+        payload = {"properties": props}
         async with httpx.AsyncClient() as client:
-            query_resp = await client.post(
-                query_url, json=query_payload, headers=NOTION_HEADERS
+            update_resp = await client.patch(
+                f"https://api.notion.com/v1/pages/{page_id}",
+                json=payload,
+                headers=NOTION_HEADERS,
             )
-        query_resp.raise_for_status()
-        results = query_resp.json().get("results", [])
-        if results:
-            page_id = results[0]["id"]
-            payload = {"properties": props}
-            async with httpx.AsyncClient() as client:
-                update_resp = await client.patch(
-                    f"https://api.notion.com/v1/pages/{page_id}",
-                    json=payload,
-                    headers=NOTION_HEADERS,
-                )
-            update_resp.raise_for_status()
-            return
+        update_resp.raise_for_status()
+        return
 
     payload = {"parent": {"database_id": NOTION_WORKOUT_DATABASE_ID}, "properties": props}
     async with httpx.AsyncClient() as client:

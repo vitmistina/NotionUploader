@@ -37,17 +37,12 @@ async def fetch_activity(activity_id: int) -> dict[str, Any]:
         return resp.json()
 
 
-async def process_activity(activity_id: int, *, update: bool = False) -> None:
+async def process_activity(activity_id: int) -> None:
     """Fetch an activity, compute metrics and upload to Notion.
 
-    Parameters
-    ----------
-    activity_id: int
-        The Strava activity identifier.
-    update: bool, optional
-        When ``True`` an existing Notion page will be updated if found. When
-        ``False`` a new page will be created. Defaults to ``False`` which
-        mirrors the previous behaviour.
+    An existing Notion page with the same activity id will be updated if
+    found; otherwise a new page will be created. This upsert behaviour helps
+    avoid duplicate entries when events are retried.
     """
     detail = await fetch_activity(activity_id)
     splits = detail.get("splits_metric", [])
@@ -79,6 +74,5 @@ async def process_activity(activity_id: int, *, update: bool = False) -> None:
         vo2,
         tss=tss,
         intensity_factor=intensity_factor,
-        update=update,
     )
 
