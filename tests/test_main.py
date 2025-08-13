@@ -341,9 +341,9 @@ async def test_manual_strava_processing(monkeypatch) -> None:
     async def fake_process(activity_id: int, settings: Settings) -> None:
         called["id"] = activity_id
 
-    from src import routes as routes_module
+    from src.routes import strava as strava_routes
 
-    monkeypatch.setattr(routes_module, "process_activity", fake_process)
+    monkeypatch.setattr(strava_routes, "process_activity", fake_process)
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
@@ -539,10 +539,12 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_athlete(settings: Settings) -> Dict[str, Any]:
         return {"ftp": 250.0, "weight": 70.0, "max_hr": 190.0}
 
-    monkeypatch.setattr("src.routes.get_daily_nutrition_summaries", fake_nutrition)
-    monkeypatch.setattr("src.routes.get_measurements", fake_metrics)
-    monkeypatch.setattr("src.routes.fetch_workouts_from_notion", fake_workouts)
-    monkeypatch.setattr("src.routes.fetch_latest_athlete_profile", fake_athlete)
+    from src.routes import workouts as workouts_routes
+
+    monkeypatch.setattr(workouts_routes, "get_daily_nutrition_summaries", fake_nutrition)
+    monkeypatch.setattr(workouts_routes, "get_measurements", fake_metrics)
+    monkeypatch.setattr(workouts_routes, "fetch_workouts_from_notion", fake_workouts)
+    monkeypatch.setattr(workouts_routes, "fetch_latest_athlete_profile", fake_athlete)
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
