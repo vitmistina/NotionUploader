@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hmac
-import hashlib
 import json
 
 from fastapi import APIRouter, HTTPException, Request, Query, Depends

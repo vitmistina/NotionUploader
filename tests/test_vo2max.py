@@ -1,5 +1,4 @@
-import pytest
-from typing import List, Dict, Any
+from typing import Dict, Any
 from src.metrics import vo2max_minutes
 
 
