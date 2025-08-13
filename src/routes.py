@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 from datetime import date, timedelta
+import asyncio
 
 from fastapi import APIRouter, Path, Query, Request
 from fastapi.responses import JSONResponse
@@ -18,7 +19,7 @@ from .notion import entries_on_date, submit_to_notion
 from .nutrition import get_daily_nutrition_summaries
 from .withings import get_measurements
 from .strava_activity import process_activity
-from .workout_notion import fetch_workouts_from_notion
+from .workout_notion import fetch_workouts_from_notion, fetch_latest_athlete_profile
 
 router: APIRouter = APIRouter(prefix="/v2")
 
@@ -69,10 +70,19 @@ async def get_complex_advice(
 ) -> ComplexAdvice:
     end: date = date.today()
     start: date = end - timedelta(days=days - 1)
-    nutrition = await get_daily_nutrition_summaries(start.isoformat(), end.isoformat())
-    metrics = await get_measurements(days)
-    workouts = await fetch_workouts_from_notion(days)
-    return ComplexAdvice(nutrition=nutrition, metrics=metrics, workouts=workouts)
+    nutrition_coro = get_daily_nutrition_summaries(start.isoformat(), end.isoformat())
+    metrics_coro = get_measurements(days)
+    workouts_coro = fetch_workouts_from_notion(days)
+    athlete_coro = fetch_latest_athlete_profile()
+    nutrition, metrics, workouts, athlete_metrics = await asyncio.gather(
+        nutrition_coro, metrics_coro, workouts_coro, athlete_coro
+    )
+    return ComplexAdvice(
+        nutrition=nutrition,
+        metrics=metrics,
+        workouts=workouts,
+        athlete_metrics=athlete_metrics,
+    )
 
 
 @router.post("/strava-activity/{activity_id}", include_in_schema=False)
