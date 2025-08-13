@@ -12,6 +12,12 @@ app: FastAPI = FastAPI(
     description="Logs food and macro data to Vit's Notion table",
 )
 
+
+@app.get("/healthz", include_in_schema=False)
+async def healthz() -> dict[str, str]:
+    """Lightweight endpoint used for health checks."""
+    return {"status": "ok"}
+
 # API endpoints secured by API key
 app.include_router(router, dependencies=[Depends(verify_api_key)])
 
