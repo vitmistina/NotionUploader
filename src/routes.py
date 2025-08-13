@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Path, Query, Request
 from fastapi.responses import JSONResponse
 
 from .models import (
     BodyMeasurement,
+    ComplexAdvice,
     DailyNutritionSummary,
     NutritionEntry,
     StatusResponse,
@@ -59,6 +61,18 @@ async def list_logged_workouts(
     days: int = Query(7, description="Number of days of logged workouts to retrieve."),
 ) -> List[WorkoutLog]:
     return await fetch_workouts_from_notion(days)
+
+
+@router.get("/complex-advice", response_model=ComplexAdvice)
+async def get_complex_advice(
+    days: int = Query(7, description="Number of days of data to retrieve."),
+) -> ComplexAdvice:
+    end: date = date.today()
+    start: date = end - timedelta(days=days - 1)
+    nutrition = await get_daily_nutrition_summaries(start.isoformat(), end.isoformat())
+    metrics = await get_measurements(days)
+    workouts = await fetch_workouts_from_notion(days)
+    return ComplexAdvice(nutrition=nutrition, metrics=metrics, workouts=workouts)
 
 
 @router.post("/strava-activity/{activity_id}", include_in_schema=False)

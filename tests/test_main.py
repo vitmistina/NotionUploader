@@ -490,3 +490,61 @@ async def test_save_workout_to_notion_inserts_when_missing(respx_mock: respx.Moc
     await wn.save_workout_to_notion(detail, "", 0.0, 0.0)
 
     assert post_route.called
+
+
+@pytest.mark.asyncio
+async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_nutrition(start: str, end: str) -> List[Dict[str, Any]]:
+        return [
+            {
+                "date": "2023-01-01",
+                "calories": 100,
+                "protein_g": 10.0,
+                "carbs_g": 20.0,
+                "fat_g": 5.0,
+                "entries": [],
+            }
+        ]
+
+    async def fake_metrics(days: int) -> List[Dict[str, Any]]:
+        return [
+            {
+                "measurement_time": "2023-01-01T00:00:00",
+                "weight_kg": 70.0,
+                "fat_mass_kg": 10.0,
+                "muscle_mass_kg": 30.0,
+                "bone_mass_kg": 5.0,
+                "hydration_kg": 40.0,
+                "fat_free_mass_kg": 60.0,
+                "body_fat_percent": 14.0,
+                "device_name": "Scale",
+            }
+        ]
+
+    async def fake_workouts(days: int) -> List[Dict[str, Any]]:
+        return [
+            {
+                "name": "Run",
+                "date": "2023-01-01",
+                "duration_s": 3600,
+                "distance_m": 10000.0,
+                "elevation_m": 100.0,
+                "type": "Run",
+            }
+        ]
+
+    monkeypatch.setattr("src.routes.get_daily_nutrition_summaries", fake_nutrition)
+    monkeypatch.setattr("src.routes.get_measurements", fake_metrics)
+    monkeypatch.setattr("src.routes.fetch_workouts_from_notion", fake_workouts)
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response: httpx.Response = await client.get(
+            "/v2/complex-advice?days=1", headers={"x-api-key": "test-key"}
+        )
+
+    assert response.status_code == 200
+    data: Dict[str, Any] = response.json()
+    assert "nutrition" in data
+    assert "metrics" in data
+    assert "workouts" in data

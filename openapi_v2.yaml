@@ -1,189 +1,562 @@
 openapi: 3.1.0
 info:
-  title: Nutrition Logger API
-  version: "2.0.0"
-  description: >-
-    API for recording and retrieving detailed nutrition entries stored in
-    a Notion database. All endpoints require an `x-api-key` header.
-servers:
-  - url: https://notionuploader-groa.onrender.com
+  title: Nutrition Logger
+  description: Logs food and macro data to Vit's Notion table
+  version: 2.0.0
 paths:
   /v2/nutrition-entries:
     post:
-      summary: Create nutrition entry
-      description: >-
-        Record a new food item and its macronutrient breakdown in the Notion
-        database.
-      operationId: createNutritionEntry
-      security:
-        - ApiKeyAuth: []
+      summary: Create Nutrition Entry
+      operationId: create_nutrition_entry_v2_nutrition_entries_post
       requestBody:
-        required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/NutritionEntry"
+              $ref: '#/components/schemas/NutritionEntry'
+        required: true
       responses:
-        "201":
-          description: Entry successfully created.
+        '201':
+          description: Successful Response
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - status
-                properties:
-                  status:
-                    type: string
-                    example: success
+                $ref: '#/components/schemas/StatusResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - ApiKeyAuth: []
   /v2/nutrition-entries/daily/{date}:
     get:
-      summary: List nutrition entries for a specific day
-      description: >-
-        Retrieve every nutrition entry recorded on a specific calendar day.
-      operationId: listDailyNutritionEntries
+      summary: List Daily Nutrition Entries
+      operationId: list_daily_nutrition_entries_v2_nutrition_entries_daily__date__get
       security:
-        - ApiKeyAuth: []
+      - ApiKeyAuth: []
       parameters:
-        - name: date
-          in: path
-          required: true
+      - name: date
+        in: path
+        required: true
+        schema:
+          type: string
           description: Date to fetch in YYYY-MM-DD format.
-          schema:
-            type: string
+          title: Date
+        description: Date to fetch in YYYY-MM-DD format.
       responses:
-        "200":
-          description: Array of nutrition entries for the requested day.
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/NutritionEntry"
+                  $ref: '#/components/schemas/NutritionEntry'
+                title: Response List Daily Nutrition Entries V2 Nutrition Entries
+                  Daily  Date  Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /v2/nutrition-entries/period:
     get:
-      summary: List daily nutrition summaries within a date range
-      description: >-
-        Retrieve nutrition entries between two dates, grouped by day with
-        aggregated macronutrient totals.
-      operationId: listNutritionEntriesByPeriod
+      summary: List Nutrition Entries By Period
+      operationId: list_nutrition_entries_by_period_v2_nutrition_entries_period_get
       security:
-        - ApiKeyAuth: []
+      - ApiKeyAuth: []
       parameters:
-        - name: start_date
-          in: query
-          required: true
+      - name: start_date
+        in: query
+        required: true
+        schema:
+          type: string
           description: Start date (inclusive) in YYYY-MM-DD format.
-          schema:
-            type: string
-        - name: end_date
-          in: query
-          required: true
+          title: Start Date
+        description: Start date (inclusive) in YYYY-MM-DD format.
+      - name: end_date
+        in: query
+        required: true
+        schema:
+          type: string
           description: End date (inclusive) in YYYY-MM-DD format.
-          schema:
-            type: string
+          title: End Date
+        description: End date (inclusive) in YYYY-MM-DD format.
       responses:
-        "200":
-          description: Array of daily nutrition summaries within the specified period.
+        '200':
+          description: Successful Response
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/DailyNutritionSummary"
-  /v2/api-schema:
-    get:
-      summary: Retrieve API schema
-      description: Return the OpenAPI specification for this API version.
-      operationId: getApiSchema
-      security:
-        - ApiKeyAuth: []
-      responses:
-        "200":
-          description: OpenAPI schema document.
+                  $ref: '#/components/schemas/DailyNutritionSummary'
+                title: Response List Nutrition Entries By Period V2 Nutrition Entries
+                  Period Get
+        '422':
+          description: Validation Error
           content:
             application/json:
               schema:
-                type: object
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v2/body-measurements:
+    get:
+      summary: List Body Measurements
+      description: 'Get body measurements from Withings scale for the specified number
+        of days.
+
+        Default is 7 days of measurements.'
+      operationId: list_body_measurements_v2_body_measurements_get
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Number of days of measurements to retrieve.
+          default: 7
+          title: Days
+        description: Number of days of measurements to retrieve.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BodyMeasurement'
+                title: Response List Body Measurements V2 Body Measurements Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v2/workout-logs:
+    get:
+      summary: List Logged Workouts
+      operationId: list_logged_workouts_v2_workout_logs_get
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Number of days of logged workouts to retrieve.
+          default: 7
+          title: Days
+        description: Number of days of logged workouts to retrieve.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkoutLog'
+                title: Response List Logged Workouts V2 Workout Logs Get
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v2/complex-advice:
+    get:
+      summary: Get Complex Advice
+      operationId: get_complex_advice_v2_complex_advice_get
+      security:
+      - ApiKeyAuth: []
+      parameters:
+      - name: days
+        in: query
+        required: false
+        schema:
+          type: integer
+          description: Number of days of data to retrieve.
+          default: 7
+          title: Days
+        description: Number of days of data to retrieve.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplexAdvice'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v2/api-schema:
+    get:
+      summary: Get Api Schema
+      description: Return the OpenAPI schema for this API version.
+      operationId: get_api_schema_v2_api_schema_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      security:
+      - ApiKeyAuth: []
 components:
+  schemas:
+    BodyMeasurement:
+      properties:
+        measurement_time:
+          type: string
+          format: date-time
+          title: Measurement Time
+        weight_kg:
+          type: number
+          title: Weight Kg
+          description: Body weight in kilograms
+        fat_mass_kg:
+          type: number
+          title: Fat Mass Kg
+          description: Total fat mass in kilograms
+        muscle_mass_kg:
+          type: number
+          title: Muscle Mass Kg
+          description: Skeletal muscle mass in kilograms
+        bone_mass_kg:
+          type: number
+          title: Bone Mass Kg
+          description: Bone mass in kilograms
+        hydration_kg:
+          type: number
+          title: Hydration Kg
+          description: Body water content in kilograms
+        fat_free_mass_kg:
+          type: number
+          title: Fat Free Mass Kg
+          description: Fat-free mass (muscles, bones, tissues) in kilograms
+        body_fat_percent:
+          type: number
+          title: Body Fat Percent
+          description: Body fat percentage
+        device_name:
+          type: string
+          title: Device Name
+          description: Name of the measuring device
+        moving_average_7d:
+          anyOf:
+          - $ref: '#/components/schemas/BodyMeasurementAverages'
+          - type: 'null'
+          description: 7-day moving averages for the measurement metrics
+      type: object
+      required:
+      - measurement_time
+      - weight_kg
+      - fat_mass_kg
+      - muscle_mass_kg
+      - bone_mass_kg
+      - hydration_kg
+      - fat_free_mass_kg
+      - body_fat_percent
+      - device_name
+      title: BodyMeasurement
+      description: A human-readable representation of body measurements from a smart
+        scale.
+      example:
+        body_fat_percent: 21.5
+        bone_mass_kg: 3.845
+        device_name: Withings Body+
+        fat_free_mass_kg: 21.507
+        fat_mass_kg: 14.8
+        hydration_kg: 54.016
+        measurement_time: '2025-08-09T08:01:06'
+        muscle_mass_kg: 51.27
+        weight_kg: 68.816
+    BodyMeasurementAverages:
+      properties:
+        weight_kg:
+          type: number
+          title: Weight Kg
+          description: 7-day average of body weight in kilograms
+        fat_mass_kg:
+          type: number
+          title: Fat Mass Kg
+          description: 7-day average of total fat mass in kilograms
+        muscle_mass_kg:
+          type: number
+          title: Muscle Mass Kg
+          description: 7-day average of skeletal muscle mass in kilograms
+        bone_mass_kg:
+          type: number
+          title: Bone Mass Kg
+          description: 7-day average of bone mass in kilograms
+        hydration_kg:
+          type: number
+          title: Hydration Kg
+          description: 7-day average of body water content in kilograms
+        fat_free_mass_kg:
+          type: number
+          title: Fat Free Mass Kg
+          description: 7-day average of fat-free mass (muscles, bones, tissues) in
+            kilograms
+        body_fat_percent:
+          type: number
+          title: Body Fat Percent
+          description: 7-day average of body fat percentage
+      type: object
+      required:
+      - weight_kg
+      - fat_mass_kg
+      - muscle_mass_kg
+      - bone_mass_kg
+      - hydration_kg
+      - fat_free_mass_kg
+      - body_fat_percent
+      title: BodyMeasurementAverages
+      description: 7-day moving averages for body measurements.
+    ComplexAdvice:
+      properties:
+        nutrition:
+          items:
+            $ref: '#/components/schemas/DailyNutritionSummary'
+          type: array
+          title: Nutrition
+        metrics:
+          items:
+            $ref: '#/components/schemas/BodyMeasurement'
+          type: array
+          title: Metrics
+        workouts:
+          items:
+            $ref: '#/components/schemas/WorkoutLog'
+          type: array
+          title: Workouts
+      type: object
+      required:
+      - nutrition
+      - metrics
+      - workouts
+      title: ComplexAdvice
+      description: Combined nutrition, body metrics, and workout data.
+    DailyNutritionSummary:
+      properties:
+        date:
+          type: string
+          title: Date
+        calories:
+          type: integer
+          title: Calories
+        protein_g:
+          type: number
+          title: Protein G
+        carbs_g:
+          type: number
+          title: Carbs G
+        fat_g:
+          type: number
+          title: Fat G
+        entries:
+          items:
+            $ref: '#/components/schemas/NutritionEntry'
+          type: array
+          title: Entries
+      type: object
+      required:
+      - date
+      - calories
+      - protein_g
+      - carbs_g
+      - fat_g
+      - entries
+      title: DailyNutritionSummary
+      description: Aggregated nutrition information for a single day.
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    NutritionEntry:
+      properties:
+        food_item:
+          type: string
+          title: Food Item
+        date:
+          type: string
+          title: Date
+        calories:
+          type: integer
+          title: Calories
+        protein_g:
+          type: number
+          title: Protein G
+        carbs_g:
+          type: number
+          title: Carbs G
+        fat_g:
+          type: number
+          title: Fat G
+        meal_type:
+          type: string
+          enum:
+          - Breakfast
+          - Lunch
+          - Dinner
+          - Snack
+          - Pre-workout
+          - Post-workout
+          title: Meal Type
+        notes:
+          type: string
+          minLength: 1
+          title: Notes
+      type: object
+      required:
+      - food_item
+      - date
+      - calories
+      - protein_g
+      - carbs_g
+      - fat_g
+      - meal_type
+      - notes
+      title: NutritionEntry
+    StatusResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+      type: object
+      required:
+      - status
+      title: StatusResponse
+      description: Simple response model indicating operation status.
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    WorkoutLog:
+      properties:
+        name:
+          type: string
+          title: Name
+        date:
+          type: string
+          title: Date
+        duration_s:
+          type: number
+          title: Duration S
+        distance_m:
+          type: number
+          title: Distance M
+        elevation_m:
+          type: number
+          title: Elevation M
+        type:
+          type: string
+          title: Type
+        average_cadence:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Average Cadence
+        average_watts:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Average Watts
+        weighted_average_watts:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Weighted Average Watts
+        kilojoules:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Kilojoules
+        kcal:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Kcal
+        average_heartrate:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Average Heartrate
+        max_heartrate:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Max Heartrate
+        hr_drift_percent:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Hr Drift Percent
+        vo2max_minutes:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Vo2Max Minutes
+        tss:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Tss
+        intensity_factor:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Intensity Factor
+        notes:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Notes
+      type: object
+      required:
+      - name
+      - date
+      - duration_s
+      - distance_m
+      - elevation_m
+      - type
+      title: WorkoutLog
+      description: Representation of a workout stored in Notion for LLM consumption.
   securitySchemes:
     ApiKeyAuth:
       type: apiKey
       in: header
       name: x-api-key
-  schemas:
-    NutritionEntry:
-      type: object
-      required:
-        - food_item
-        - date
-        - calories
-        - protein_g
-        - carbs_g
-        - fat_g
-        - meal_type
-        - notes
-      properties:
-        food_item:
-          type: string
-          description: Name of the food item consumed.
-        date:
-          type: string
-          description: Date of consumption in YYYY-MM-DD format.
-        calories:
-          type: integer
-          description: Total calories for the food item.
-        protein_g:
-          type: number
-          description: Protein content in grams.
-        carbs_g:
-          type: number
-          description: Carbohydrate content in grams.
-        fat_g:
-          type: number
-          description: Fat content in grams.
-        meal_type:
-          type: string
-          description: Type of meal when the food was eaten.
-          enum:
-            - Breakfast
-            - Lunch
-            - Dinner
-            - Snack
-            - Pre-workout
-            - Post-workout
-        notes:
-          type: string
-          description: Additional notes or details about the entry.
-    DailyNutritionSummary:
-      type: object
-      required:
-        - date
-        - calories
-        - protein_g
-        - carbs_g
-        - fat_g
-        - entries
-      properties:
-        date:
-          type: string
-          description: Date of the aggregated entries in YYYY-MM-DD format.
-        calories:
-          type: integer
-          description: Total calories consumed on this date.
-        protein_g:
-          type: number
-          description: Total protein in grams for this date.
-        carbs_g:
-          type: number
-          description: Total carbohydrates in grams for this date.
-        fat_g:
-          type: number
-          description: Total fat in grams for this date.
-        entries:
-          type: array
-          description: Detailed nutrition entries for the day.
-          items:
-            $ref: "#/components/schemas/NutritionEntry"
-security:
-  - ApiKeyAuth: []
+servers:
+- url: https://notionuploader-groa.onrender.com

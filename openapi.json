@@ -263,6 +263,53 @@
         }
       }
     },
+    "/v2/complex-advice": {
+      "get": {
+        "summary": "Get Complex Advice",
+        "operationId": "get_complex_advice_v2_complex_advice_get",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "description": "Number of days of data to retrieve.",
+              "default": 7,
+              "title": "Days"
+            },
+            "description": "Number of days of data to retrieve."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplexAdvice"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v2/api-schema": {
       "get": {
         "summary": "Get Api Schema",
@@ -423,6 +470,39 @@
         ],
         "title": "BodyMeasurementAverages",
         "description": "7-day moving averages for body measurements."
+      },
+      "ComplexAdvice": {
+        "properties": {
+          "nutrition": {
+            "items": {
+              "$ref": "#/components/schemas/DailyNutritionSummary"
+            },
+            "type": "array",
+            "title": "Nutrition"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/BodyMeasurement"
+            },
+            "type": "array",
+            "title": "Metrics"
+          },
+          "workouts": {
+            "items": {
+              "$ref": "#/components/schemas/WorkoutLog"
+            },
+            "type": "array",
+            "title": "Workouts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nutrition",
+          "metrics",
+          "workouts"
+        ],
+        "title": "ComplexAdvice",
+        "description": "Combined nutrition, body metrics, and workout data."
       },
       "DailyNutritionSummary": {
         "properties": {
