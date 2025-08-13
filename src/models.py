@@ -184,3 +184,11 @@ class DailyNutritionSummary(BaseModel):
     carbs_g: float
     fat_g: float
     entries: List[NutritionEntry]
+
+
+class ComplexAdvice(BaseModel):
+    """Combined nutrition, body metrics, and workout data."""
+
+    nutrition: List[DailyNutritionSummary]
+    metrics: List[BodyMeasurement]
+    workouts: List[WorkoutLog]
