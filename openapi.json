@@ -6,6 +6,28 @@
     "version": "2.0.0"
   },
   "paths": {
+    "/v2/api-schema": {
+      "get": {
+        "summary": "Get Api Schema",
+        "description": "Return the OpenAPI schema for this API version.",
+        "operationId": "get_api_schema_v2_api_schema_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
     "/v2/nutrition-entries": {
       "post": {
         "summary": "Create Nutrition Entry",
@@ -163,7 +185,7 @@
     "/v2/body-measurements": {
       "get": {
         "summary": "List Body Measurements",
-        "description": "Get body measurements from Withings scale for the specified number of days.\nDefault is 7 days of measurements.",
+        "description": "Get body measurements from Withings scale for the specified number of days.",
         "operationId": "list_body_measurements_v2_body_measurements_get",
         "security": [
           {
@@ -308,28 +330,6 @@
             }
           }
         }
-      }
-    },
-    "/v2/api-schema": {
-      "get": {
-        "summary": "Get Api Schema",
-        "description": "Return the OpenAPI schema for this API version.",
-        "operationId": "get_api_schema_v2_api_schema_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "ApiKeyAuth": []
-          }
-        ]
       }
     }
   },

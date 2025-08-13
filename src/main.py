@@ -1,8 +1,14 @@
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI
+from typing import Any, Dict
 
-from .routes import router
+from fastapi import Depends, FastAPI, Request
+from fastapi.responses import JSONResponse
+
+from .routes.nutrition import router as nutrition_router
+from .routes.metrics import router as metrics_router
+from .routes.workouts import router as workouts_router
+from .routes.strava import router as strava_router
 from .security import verify_api_key
 from .strava_webhook import webhook_router
 
@@ -19,8 +25,19 @@ async def healthz() -> dict[str, str]:
     """Lightweight endpoint used for health checks."""
     return {"status": "ok"}
 
-# API endpoints secured by API key
-app.include_router(router, dependencies=[Depends(verify_api_key)])
+
+@app.get("/v2/api-schema")
+async def get_api_schema(request: Request, _: Any = Depends(verify_api_key)) -> JSONResponse:
+    """Return the OpenAPI schema for this API version."""
+    openapi_schema: Dict[str, Any] = request.app.openapi()
+    openapi_schema["servers"] = [
+        {"url": "https://notionuploader-groa.onrender.com"}
+    ]
+    return JSONResponse(openapi_schema)
+
+
+for router in (nutrition_router, metrics_router, workouts_router, strava_router):
+    app.include_router(router, prefix="/v2", dependencies=[Depends(verify_api_key)])
 
 # Strava webhook endpoints (no API key security)
 app.include_router(webhook_router)
