@@ -335,6 +335,46 @@
   },
   "components": {
     "schemas": {
+      "AthleteMetrics": {
+        "properties": {
+          "ftp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight"
+          },
+          "max_hr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Hr"
+          }
+        },
+        "type": "object",
+        "title": "AthleteMetrics",
+        "description": "Latest athlete-level metrics such as FTP and max heart rate."
+      },
       "BodyMeasurement": {
         "properties": {
           "measurement_time": {
@@ -493,16 +533,20 @@
             },
             "type": "array",
             "title": "Workouts"
+          },
+          "athlete_metrics": {
+            "$ref": "#/components/schemas/AthleteMetrics"
           }
         },
         "type": "object",
         "required": [
           "nutrition",
           "metrics",
-          "workouts"
+          "workouts",
+          "athlete_metrics"
         ],
         "title": "ComplexAdvice",
-        "description": "Combined nutrition, body metrics, and workout data."
+        "description": "Combined nutrition, body metrics, workout data, and athlete metrics."
       },
       "DailyNutritionSummary": {
         "properties": {

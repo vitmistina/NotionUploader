@@ -186,9 +186,18 @@ class DailyNutritionSummary(BaseModel):
     entries: List[NutritionEntry]
 
 
+class AthleteMetrics(BaseModel):
+    """Latest athlete-level metrics such as FTP and max heart rate."""
+
+    ftp: Optional[float] = None
+    weight: Optional[float] = None
+    max_hr: Optional[float] = None
+
+
 class ComplexAdvice(BaseModel):
-    """Combined nutrition, body metrics, and workout data."""
+    """Combined nutrition, body metrics, workout data, and athlete metrics."""
 
     nutrition: List[DailyNutritionSummary]
     metrics: List[BodyMeasurement]
     workouts: List[WorkoutLog]
+    athlete_metrics: AthleteMetrics
