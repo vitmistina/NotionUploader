@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from datetime import datetime
 
 import httpx
 import json
@@ -150,9 +151,13 @@ async def test_get_foods_by_date(respx_mock: respx.MockRouter) -> None:
             headers={"x-api-key": "test-key"},
         )
     assert response.status_code == 200
-    data: List[Dict[str, Any]] = response.json()
-    assert len(data) == 1
-    assert data[0]["food_item"] == "Apple"
+    data: Dict[str, Any] = response.json()
+    assert "local_time" in data
+    assert datetime.fromisoformat(data["local_time"]).tzinfo is not None
+    assert "part_of_day" in data
+    entries: List[Dict[str, Any]] = data["entries"]
+    assert len(entries) == 1
+    assert entries[0]["food_item"] == "Apple"
 
 
 @pytest.mark.asyncio
@@ -205,14 +210,18 @@ async def test_get_foods_range(respx_mock: respx.MockRouter) -> None:
             headers={"x-api-key": "test-key"},
         )
     assert response.status_code == 200
-    data: List[Dict[str, Any]] = response.json()
-    assert len(data) == 2
-    day1: Dict[str, Any] = data[0]
+    data: Dict[str, Any] = response.json()
+    assert "local_time" in data
+    assert datetime.fromisoformat(data["local_time"]).tzinfo is not None
+    assert "part_of_day" in data
+    days: List[Dict[str, Any]] = data["nutrition"]
+    assert len(days) == 2
+    day1: Dict[str, Any] = days[0]
     assert day1["date"] == "2023-01-01"
     assert day1["calories"] == 300
     assert day1["protein_g"] == 30
     assert len(day1["entries"]) == 2
-    day2: Dict[str, Any] = data[1]
+    day2: Dict[str, Any] = days[1]
     assert day2["date"] == "2023-01-02"
     assert day2["calories"] == 300
     assert len(day2["entries"]) == 1
@@ -549,11 +558,14 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         response: httpx.Response = await client.get(
-            "/v2/complex-advice?days=1", headers={"x-api-key": "test-key"}
+            "/v2/complex-advice?days=1&timezone=UTC",
+            headers={"x-api-key": "test-key"},
         )
 
     assert response.status_code == 200
     data: Dict[str, Any] = response.json()
+    assert datetime.fromisoformat(data["local_time"]).tzinfo is not None
+    assert "part_of_day" in data
     assert "nutrition" in data
     assert "metrics" in data
     assert "workouts" in data

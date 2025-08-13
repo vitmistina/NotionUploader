@@ -8,10 +8,14 @@ from ..models.nutrition import (
     DailyNutritionSummary,
     NutritionEntry,
     StatusResponse,
+    NutritionEntriesResponse,
+    NutritionPeriodResponse,
 )
+from ..models.time import get_local_time
 from ..notion import entries_on_date, submit_to_notion
 from ..nutrition import get_daily_nutrition_summaries
 from ..settings import Settings, get_settings
+from .utils import timezone_query
 
 router: APIRouter = APIRouter()
 
@@ -23,15 +27,24 @@ async def create_nutrition_entry(
     return await submit_to_notion(entry, settings)
 
 
-@router.get("/nutrition-entries/daily/{date}", response_model=List[NutritionEntry])
+@router.get(
+    "/nutrition-entries/daily/{date}",
+    response_model=NutritionEntriesResponse,
+)
 async def list_daily_nutrition_entries(
     date: str = Path(..., description="Date to fetch in YYYY-MM-DD format."),
+    timezone: str = timezone_query,
     settings: Settings = Depends(get_settings),
-) -> List[NutritionEntry]:
-    return await entries_on_date(date, settings)
+) -> NutritionEntriesResponse:
+    entries: List[NutritionEntry] = await entries_on_date(date, settings)
+    local_time, part = get_local_time(timezone)
+    return NutritionEntriesResponse(entries=entries, local_time=local_time, part_of_day=part)
 
 
-@router.get("/nutrition-entries/period", response_model=List[DailyNutritionSummary])
+@router.get(
+    "/nutrition-entries/period",
+    response_model=NutritionPeriodResponse,
+)
 async def list_nutrition_entries_by_period(
     start_date: str = Query(
         ..., description="Start date (inclusive) in YYYY-MM-DD format.",
@@ -39,6 +52,13 @@ async def list_nutrition_entries_by_period(
     end_date: str = Query(
         ..., description="End date (inclusive) in YYYY-MM-DD format.",
     ),
+    timezone: str = timezone_query,
     settings: Settings = Depends(get_settings),
-) -> List[DailyNutritionSummary]:
-    return await get_daily_nutrition_summaries(start_date, end_date, settings)
+) -> NutritionPeriodResponse:
+    summaries: List[DailyNutritionSummary] = await get_daily_nutrition_summaries(
+        start_date, end_date, settings
+    )
+    local_time, part = get_local_time(timezone)
+    return NutritionPeriodResponse(
+        nutrition=summaries, local_time=local_time, part_of_day=part
+    )

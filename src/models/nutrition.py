@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Literal, List
 
+from .time import TimeContext
+
 from pydantic import BaseModel, Field
 
 
@@ -33,3 +35,15 @@ class DailyNutritionSummary(BaseModel):
     carbs_g: float
     fat_g: float
     entries: List[NutritionEntry]
+
+
+class NutritionEntriesResponse(TimeContext):
+    """Response wrapper for a list of nutrition entries with timing context."""
+
+    entries: List[NutritionEntry]
+
+
+class NutritionPeriodResponse(TimeContext):
+    """Response wrapper for a range of daily nutrition summaries with timing context."""
+
+    nutrition: List[DailyNutritionSummary]
