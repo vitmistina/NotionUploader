@@ -29,5 +29,6 @@ async def strava_event(request: Request) -> dict[str, str]:
     event = json.loads(body)
     aspect = event.get("aspect_type")
     if event.get("object_type") == "activity" and aspect in {"create", "update"}:
-        await process_activity(int(event["object_id"]), update=aspect == "update")
+        # Always attempt to upsert the activity to avoid duplicate Notion entries
+        await process_activity(int(event["object_id"]))
     return {"status": "ok"}

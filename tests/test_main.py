@@ -274,9 +274,8 @@ async def test_strava_webhook_verification() -> None:
 async def test_strava_webhook_event(monkeypatch) -> None:
     called: Dict[str, Any] = {}
 
-    async def fake_process(activity_id: int, *, update: bool = False) -> None:
+    async def fake_process(activity_id: int) -> None:
         called["id"] = activity_id
-        called["update"] = update
 
     from src import strava_webhook as webhook
 
@@ -301,16 +300,14 @@ async def test_strava_webhook_event(monkeypatch) -> None:
         )
     assert response.status_code == 200
     assert called["id"] == 42
-    assert called["update"] is False
 
 
 @pytest.mark.asyncio
 async def test_strava_webhook_event_update(monkeypatch) -> None:
     called: Dict[str, Any] = {}
 
-    async def fake_process(activity_id: int, *, update: bool = False) -> None:
+    async def fake_process(activity_id: int) -> None:
         called["id"] = activity_id
-        called["update"] = update
 
     from src import strava_webhook as webhook
 
@@ -335,7 +332,6 @@ async def test_strava_webhook_event_update(monkeypatch) -> None:
         )
     assert response.status_code == 200
     assert called["id"] == 43
-    assert called["update"] is True
 
 
 @pytest.mark.asyncio
@@ -444,7 +440,6 @@ async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> N
         *,
         tss: Optional[float] = None,
         intensity_factor: Optional[float] = None,
-        update: bool = False,
     ) -> None:
         called["vo2"] = vo2
         called["tss"] = tss
@@ -476,7 +471,7 @@ async def test_save_workout_to_notion_updates_existing(respx_mock: respx.MockRou
         return_value=httpx.Response(200, json={"id": "page123"})
     )
 
-    await wn.save_workout_to_notion(detail, "", 0.0, 0.0, update=True)
+    await wn.save_workout_to_notion(detail, "", 0.0, 0.0)
 
     assert patch_route.called
 
@@ -492,6 +487,6 @@ async def test_save_workout_to_notion_inserts_when_missing(respx_mock: respx.Moc
         return_value=httpx.Response(200, json={"id": "page321"})
     )
 
-    await wn.save_workout_to_notion(detail, "", 0.0, 0.0, update=True)
+    await wn.save_workout_to_notion(detail, "", 0.0, 0.0)
 
     assert post_route.called
