@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import deque
 from typing import Any, List, Optional
 
-from .models import BodyMeasurement, BodyMeasurementAverages
+from .models.body import BodyMeasurement, BodyMeasurementAverages
 
 
 def add_moving_average(

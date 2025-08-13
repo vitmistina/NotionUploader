@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 from fastapi import HTTPException
 
-from .models import NutritionEntry, StatusResponse
+from .models.nutrition import NutritionEntry, StatusResponse
 from .settings import Settings
 
 async def submit_to_notion(entry: NutritionEntry, settings: Settings) -> StatusResponse:
