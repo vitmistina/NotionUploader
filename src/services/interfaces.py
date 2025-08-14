@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Protocol, runtime_checkable
+from typing import Any, Dict, Protocol, runtime_checkable
 
 import httpx
 
@@ -13,8 +13,8 @@ class NotionAPI(Protocol):
 
     async def query(
         self, database_id: str, payload: Dict[str, Any]
-    ) -> List[Dict[str, Any]]:
-        """Query a database and return raw results."""
+    ) -> Dict[str, Any]:
+        """Query a database and return the raw response."""
 
     async def create(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new page and return the created object."""

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import httpx
 from fastapi import Depends, HTTPException
@@ -32,9 +32,9 @@ class NotionClient(NotionAPI):
             raise HTTPException(status_code=resp.status_code, detail=resp.text)
         return resp
 
-    async def query(self, database_id: str, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def query(self, database_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         resp = await self._request("POST", f"/databases/{database_id}/query", json=payload)
-        return resp.json().get("results", [])
+        return resp.json()
 
     async def create(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         resp = await self._request("POST", "/pages", json=payload)

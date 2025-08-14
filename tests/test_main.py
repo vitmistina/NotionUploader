@@ -225,7 +225,16 @@ async def test_get_foods_range(respx_mock: respx.MockRouter) -> None:
         }
     }
     respx_mock.post(notion_url).mock(
-        return_value=httpx.Response(200, json={"results": [page1, page2, page3]})
+        side_effect=[
+            httpx.Response(
+                200,
+                json={"results": [page1], "has_more": True, "next_cursor": "cursor1"},
+            ),
+            httpx.Response(
+                200,
+                json={"results": [page2, page3], "has_more": False},
+            ),
+        ]
     )
     transport: httpx.ASGITransport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
@@ -250,9 +259,12 @@ async def test_get_foods_range(respx_mock: respx.MockRouter) -> None:
     assert day2["date"] == "2023-01-02"
     assert day2["daily_calories_sum"] == 300
     assert len(day2["entries"]) == 1
+    assert len(respx_mock.calls) == 2
     request_json: Dict[str, Any] = json.loads(respx_mock.calls[0].request.content)
     assert request_json["filter"]["and"][0]["date"]["on_or_after"] == "2023-01-01"
     assert request_json["filter"]["and"][1]["date"]["on_or_before"] == "2023-01-02"
+    next_payload: Dict[str, Any] = json.loads(respx_mock.calls[1].request.content)
+    assert next_payload.get("start_cursor") == "cursor1"
 
 
 @pytest.mark.asyncio
@@ -473,17 +485,19 @@ async def test_process_activity_uses_laps_and_computes_metrics() -> None:
         def __init__(self) -> None:
             self.created: Dict[str, Any] | None = None
 
-        async def query(self, database_id: str, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+        async def query(self, database_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
             if database_id == test_settings.notion_athlete_profile_database_id:
-                return [
-                    {
-                        "properties": {
-                            "FTP Watts": {"number": 200},
-                            "Max HR": {"number": 190},
+                return {
+                    "results": [
+                        {
+                            "properties": {
+                                "FTP Watts": {"number": 200},
+                                "Max HR": {"number": 190},
+                            }
                         }
-                    }
-                ]
-            return []
+                    ]
+                }
+            return {"results": []}
 
         async def create(self, payload: Dict[str, Any]) -> Dict[str, Any]:
             self.created = payload
