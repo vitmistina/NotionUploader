@@ -15,7 +15,8 @@ from openapi_spec_validator import validate
 # Ensure the repository root is on the Python path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import main
-from src.redis import get_redis
+from src.services.redis import get_redis
+from src.services.notion import NotionClient
 from src.settings import Settings, get_settings
 
 test_settings = Settings(
@@ -50,6 +51,8 @@ class DummyRedis:
 
 
 app.dependency_overrides[get_redis] = DummyRedis
+
+test_notion_client = NotionClient(settings=test_settings)
 
 
 @pytest.mark.asyncio
@@ -298,7 +301,12 @@ async def test_strava_webhook_verification() -> None:
 async def test_strava_webhook_event(monkeypatch) -> None:
     called: Dict[str, Any] = {}
 
-    async def fake_process(activity_id: int, redis: DummyRedis, settings: Settings) -> None:
+    async def fake_process(
+        activity_id: int,
+        redis: DummyRedis,
+        settings: Settings,
+        client: NotionClient,
+    ) -> None:
         called["id"] = activity_id
 
     from src import strava_webhook as webhook
@@ -330,7 +338,12 @@ async def test_strava_webhook_event(monkeypatch) -> None:
 async def test_strava_webhook_event_update(monkeypatch) -> None:
     called: Dict[str, Any] = {}
 
-    async def fake_process(activity_id: int, redis: DummyRedis, settings: Settings) -> None:
+    async def fake_process(
+        activity_id: int,
+        redis: DummyRedis,
+        settings: Settings,
+        client: NotionClient,
+    ) -> None:
         called["id"] = activity_id
 
     from src import strava_webhook as webhook
@@ -362,7 +375,12 @@ async def test_strava_webhook_event_update(monkeypatch) -> None:
 async def test_manual_strava_processing(monkeypatch) -> None:
     called: Dict[str, Any] = {}
 
-    async def fake_process(activity_id: int, redis: DummyRedis, settings: Settings) -> None:
+    async def fake_process(
+        activity_id: int,
+        redis: DummyRedis,
+        settings: Settings,
+        client: NotionClient,
+    ) -> None:
         called["id"] = activity_id
 
     from src.routes import strava as strava_routes
@@ -451,7 +469,9 @@ async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> N
             "description": "desc",
         }
 
-    async def fake_fetch_profile(settings: Settings) -> Dict[str, Any]:
+    async def fake_fetch_profile(
+        settings: Settings, client: NotionClient
+    ) -> Dict[str, Any]:
         return {"ftp": 200, "max_hr": 190}
 
     called: Dict[str, Any] = {}
@@ -465,6 +485,7 @@ async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> N
         tss: Optional[float] = None,
         intensity_factor: Optional[float] = None,
         settings: Settings,
+        client: NotionClient,
     ) -> None:
         called["vo2"] = vo2
         called["tss"] = tss
@@ -475,7 +496,7 @@ async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> N
     monkeypatch.setattr(sa, "fetch_latest_athlete_profile", fake_fetch_profile)
     monkeypatch.setattr(sa, "save_workout_to_notion", fake_save)
 
-    await sa.process_activity(1, DummyRedis(), test_settings)
+    await sa.process_activity(1, DummyRedis(), test_settings, test_notion_client)
 
     assert called["vo2"] == pytest.approx(3.0)
     assert called["if"] == pytest.approx(1.05)
@@ -496,7 +517,9 @@ async def test_save_workout_to_notion_updates_existing(respx_mock: respx.MockRou
         return_value=httpx.Response(200, json={"id": "page123"})
     )
 
-    await wn.save_workout_to_notion(detail, "", 0.0, 0.0, settings=test_settings)
+    await wn.save_workout_to_notion(
+        detail, "", 0.0, 0.0, settings=test_settings, client=test_notion_client
+    )
 
     assert patch_route.called
 
@@ -512,7 +535,9 @@ async def test_save_workout_to_notion_inserts_when_missing(respx_mock: respx.Moc
         return_value=httpx.Response(200, json={"id": "page321"})
     )
 
-    await wn.save_workout_to_notion(detail, "", 0.0, 0.0, settings=test_settings)
+    await wn.save_workout_to_notion(
+        detail, "", 0.0, 0.0, settings=test_settings, client=test_notion_client
+    )
 
     assert post_route.called
 
@@ -520,7 +545,7 @@ async def test_save_workout_to_notion_inserts_when_missing(respx_mock: respx.Moc
 @pytest.mark.asyncio
 async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_nutrition(
-        start: str, end: str, settings: Settings
+        start: str, end: str, settings: Settings, client: NotionClient
     ) -> List[Dict[str, Any]]:
         return [
             {
@@ -548,7 +573,9 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
             }
         ]
 
-    async def fake_workouts(days: int, settings: Settings) -> List[Dict[str, Any]]:
+    async def fake_workouts(
+        days: int, settings: Settings, client: NotionClient
+    ) -> List[Dict[str, Any]]:
         return [
             {
                 "name": "Run",
@@ -560,7 +587,9 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
             }
         ]
 
-    async def fake_athlete(settings: Settings) -> Dict[str, Any]:
+    async def fake_athlete(
+        settings: Settings, client: NotionClient
+    ) -> Dict[str, Any]:
         return {"ftp": 250.0, "weight": 70.0, "max_hr": 190.0}
 
     from src.routes import workouts as workouts_routes

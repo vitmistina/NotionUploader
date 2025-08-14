@@ -5,7 +5,7 @@ from typing import Protocol, Optional
 from fastapi import Depends
 from upstash_redis import Redis
 
-from .settings import Settings, get_settings
+from ..settings import Settings, get_settings
 
 
 class RedisClient(Protocol):

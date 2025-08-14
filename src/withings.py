@@ -5,7 +5,7 @@ from datetime import datetime
 
 from .models.body import BodyMeasurement
 from .metrics import add_moving_average
-from .redis import RedisClient
+from .services.redis import RedisClient
 from .settings import Settings
 
 

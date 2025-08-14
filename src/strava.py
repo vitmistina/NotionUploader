@@ -2,7 +2,7 @@ from typing import Optional
 
 import httpx
 
-from .redis import RedisClient
+from .services.redis import RedisClient
 from .settings import Settings
 
 

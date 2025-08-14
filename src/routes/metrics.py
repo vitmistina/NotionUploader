@@ -5,7 +5,7 @@ from typing import List
 from fastapi import APIRouter, Query, Depends
 
 from ..models.body import BodyMeasurement
-from ..redis import RedisClient, get_redis
+from ..services.redis import RedisClient, get_redis
 from ..settings import Settings, get_settings
 from ..withings import get_measurements
 
