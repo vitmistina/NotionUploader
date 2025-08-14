@@ -1,14 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 
 from pydantic import BaseModel, Field
-
-from .time import TimeContext
-
-from .body import BodyMeasurement
-from .nutrition import DailyNutritionSummary
 
 
 class Workout(BaseModel):
@@ -101,20 +96,3 @@ class WorkoutLog(BaseModel):
     tss: Optional[float] = None
     intensity_factor: Optional[float] = None
     notes: Optional[str] = None
-
-
-class AthleteMetrics(BaseModel):
-    """Latest athlete-level metrics such as FTP and max heart rate."""
-
-    ftp: Optional[float] = None
-    weight: Optional[float] = None
-    max_hr: Optional[float] = None
-
-
-class ComplexAdvice(TimeContext):
-    """Combined nutrition, body metrics, workout data, and athlete metrics."""
-
-    nutrition: List[DailyNutritionSummary]
-    metrics: List[BodyMeasurement]
-    workouts: List[WorkoutLog]
-    athlete_metrics: AthleteMetrics

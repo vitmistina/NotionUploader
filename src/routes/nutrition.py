@@ -6,6 +6,7 @@ from fastapi import APIRouter, Path, Query, Depends
 
 from ..models.nutrition import (
     DailyNutritionSummary,
+    DailyNutritionSummaryWithEntries,
     NutritionEntry,
     StatusResponse,
     NutritionEntriesResponse,
@@ -13,7 +14,7 @@ from ..models.nutrition import (
 )
 from ..models.time import get_local_time
 from ..notion import entries_on_date, submit_to_notion
-from ..nutrition import get_daily_nutrition_summaries
+from ..nutrition import build_daily_summary, get_daily_nutrition_summaries
 from ..services.interfaces import NotionAPI
 from ..services.notion import get_notion_client
 from ..settings import Settings, get_settings
@@ -42,8 +43,11 @@ async def list_daily_nutrition_entries(
     client: NotionAPI = Depends(get_notion_client),
 ) -> NutritionEntriesResponse:
     entries: List[NutritionEntry] = await entries_on_date(date, settings, client)
+    summary: DailyNutritionSummary = build_daily_summary(date, entries)
     local_time, part = get_local_time(timezone)
-    return NutritionEntriesResponse(entries=entries, local_time=local_time, part_of_day=part)
+    return NutritionEntriesResponse(
+        entries=entries, summary=summary, local_time=local_time, part_of_day=part
+    )
 
 
 @router.get(
@@ -61,7 +65,7 @@ async def list_nutrition_entries_by_period(
     settings: Settings = Depends(get_settings),
     client: NotionAPI = Depends(get_notion_client),
 ) -> NutritionPeriodResponse:
-    summaries: List[DailyNutritionSummary] = await get_daily_nutrition_summaries(
+    summaries: List[DailyNutritionSummaryWithEntries] = await get_daily_nutrition_summaries(
         start_date, end_date, settings, client
     )
     local_time, part = get_local_time(timezone)

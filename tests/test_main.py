@@ -176,6 +176,13 @@ async def test_get_foods_by_date(respx_mock: respx.MockRouter) -> None:
     entries: List[Dict[str, Any]] = data["entries"]
     assert len(entries) == 1
     assert entries[0]["food_item"] == "Apple"
+    summary: Dict[str, Any] = data["summary"]
+    assert summary["date"] == "2023-01-01"
+    assert summary["daily_calories_sum"] == 95
+    assert summary["daily_protein_g_sum"] == 0.5
+    assert summary["daily_carbs_g_sum"] == 25
+    assert summary["daily_fat_g_sum"] == 0.3
+    assert "entries" not in summary
 
 
 @pytest.mark.asyncio
@@ -236,12 +243,12 @@ async def test_get_foods_range(respx_mock: respx.MockRouter) -> None:
     assert len(days) == 2
     day1: Dict[str, Any] = days[0]
     assert day1["date"] == "2023-01-01"
-    assert day1["calories"] == 300
-    assert day1["protein_g"] == 30
+    assert day1["daily_calories_sum"] == 300
+    assert day1["daily_protein_g_sum"] == 30
     assert len(day1["entries"]) == 2
     day2: Dict[str, Any] = days[1]
     assert day2["date"] == "2023-01-02"
-    assert day2["calories"] == 300
+    assert day2["daily_calories_sum"] == 300
     assert len(day2["entries"]) == 1
     request_json: Dict[str, Any] = json.loads(respx_mock.calls[0].request.content)
     assert request_json["filter"]["and"][0]["date"]["on_or_after"] == "2023-01-01"
@@ -550,11 +557,22 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
         return [
             {
                 "date": "2023-01-01",
-                "calories": 100,
-                "protein_g": 10.0,
-                "carbs_g": 20.0,
-                "fat_g": 5.0,
-                "entries": [],
+                "daily_calories_sum": 100,
+                "daily_protein_g_sum": 10.0,
+                "daily_carbs_g_sum": 20.0,
+                "daily_fat_g_sum": 5.0,
+                "entries": [
+                    {
+                        "food_item": "Food",
+                        "date": "2023-01-01",
+                        "calories": 100,
+                        "protein_g": 10.0,
+                        "carbs_g": 20.0,
+                        "fat_g": 5.0,
+                        "meal_type": "Lunch",
+                        "notes": "note",
+                    }
+                ],
             }
         ]
 
@@ -592,12 +610,12 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     ) -> Dict[str, Any]:
         return {"ftp": 250.0, "weight": 70.0, "max_hr": 190.0}
 
-    from src.routes import workouts as workouts_routes
+    from src.routes import advice as advice_routes
 
-    monkeypatch.setattr(workouts_routes, "get_daily_nutrition_summaries", fake_nutrition)
-    monkeypatch.setattr(workouts_routes, "get_measurements", fake_metrics)
-    monkeypatch.setattr(workouts_routes, "fetch_workouts_from_notion", fake_workouts)
-    monkeypatch.setattr(workouts_routes, "fetch_latest_athlete_profile", fake_athlete)
+    monkeypatch.setattr(advice_routes, "get_daily_nutrition_summaries", fake_nutrition)
+    monkeypatch.setattr(advice_routes, "get_measurements", fake_metrics)
+    monkeypatch.setattr(advice_routes, "fetch_workouts_from_notion", fake_workouts)
+    monkeypatch.setattr(advice_routes, "fetch_latest_athlete_profile", fake_athlete)
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
@@ -611,6 +629,7 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     assert datetime.fromisoformat(data["local_time"]).tzinfo is not None
     assert "part_of_day" in data
     assert "nutrition" in data
+    assert data["nutrition"][0]["entries"][0]["food_item"] == "Food"
     assert "metrics" in data
     assert "workouts" in data
     assert "athlete_metrics" in data

@@ -30,10 +30,15 @@ class DailyNutritionSummary(BaseModel):
     """Aggregated nutrition information for a single day."""
 
     date: str
-    calories: int
-    protein_g: float
-    carbs_g: float
-    fat_g: float
+    daily_calories_sum: int
+    daily_protein_g_sum: float
+    daily_carbs_g_sum: float
+    daily_fat_g_sum: float
+
+
+class DailyNutritionSummaryWithEntries(DailyNutritionSummary):
+    """Daily summary extended with the list of individual entries."""
+
     entries: List[NutritionEntry]
 
 
@@ -41,9 +46,10 @@ class NutritionEntriesResponse(TimeContext):
     """Response wrapper for a list of nutrition entries with timing context."""
 
     entries: List[NutritionEntry]
+    summary: DailyNutritionSummary
 
 
 class NutritionPeriodResponse(TimeContext):
     """Response wrapper for a range of daily nutrition summaries with timing context."""
 
-    nutrition: List[DailyNutritionSummary]
+    nutrition: List[DailyNutritionSummaryWithEntries]

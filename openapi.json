@@ -559,7 +559,7 @@
           },
           "nutrition": {
             "items": {
-              "$ref": "#/components/schemas/DailyNutritionSummary"
+              "$ref": "#/components/schemas/DailyNutritionSummaryWithEntries"
             },
             "type": "array",
             "title": "Nutrition"
@@ -600,21 +600,55 @@
             "type": "string",
             "title": "Date"
           },
-          "calories": {
+          "daily_calories_sum": {
             "type": "integer",
-            "title": "Calories"
+            "title": "Daily Calories Sum"
           },
-          "protein_g": {
+          "daily_protein_g_sum": {
             "type": "number",
-            "title": "Protein G"
+            "title": "Daily Protein G Sum"
           },
-          "carbs_g": {
+          "daily_carbs_g_sum": {
             "type": "number",
-            "title": "Carbs G"
+            "title": "Daily Carbs G Sum"
           },
-          "fat_g": {
+          "daily_fat_g_sum": {
             "type": "number",
-            "title": "Fat G"
+            "title": "Daily Fat G Sum"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "daily_calories_sum",
+          "daily_protein_g_sum",
+          "daily_carbs_g_sum",
+          "daily_fat_g_sum"
+        ],
+        "title": "DailyNutritionSummary",
+        "description": "Aggregated nutrition information for a single day."
+      },
+      "DailyNutritionSummaryWithEntries": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "daily_calories_sum": {
+            "type": "integer",
+            "title": "Daily Calories Sum"
+          },
+          "daily_protein_g_sum": {
+            "type": "number",
+            "title": "Daily Protein G Sum"
+          },
+          "daily_carbs_g_sum": {
+            "type": "number",
+            "title": "Daily Carbs G Sum"
+          },
+          "daily_fat_g_sum": {
+            "type": "number",
+            "title": "Daily Fat G Sum"
           },
           "entries": {
             "items": {
@@ -627,14 +661,14 @@
         "type": "object",
         "required": [
           "date",
-          "calories",
-          "protein_g",
-          "carbs_g",
-          "fat_g",
+          "daily_calories_sum",
+          "daily_protein_g_sum",
+          "daily_carbs_g_sum",
+          "daily_fat_g_sum",
           "entries"
         ],
-        "title": "DailyNutritionSummary",
-        "description": "Aggregated nutrition information for a single day."
+        "title": "DailyNutritionSummaryWithEntries",
+        "description": "Daily summary extended with the list of individual entries."
       },
       "HTTPValidationError": {
         "properties": {
@@ -673,13 +707,17 @@
             },
             "type": "array",
             "title": "Entries"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/DailyNutritionSummary"
           }
         },
         "type": "object",
         "required": [
           "local_time",
           "part_of_day",
-          "entries"
+          "entries",
+          "summary"
         ],
         "title": "NutritionEntriesResponse",
         "description": "Response wrapper for a list of nutrition entries with timing context."
@@ -761,7 +799,7 @@
           },
           "nutrition": {
             "items": {
-              "$ref": "#/components/schemas/DailyNutritionSummary"
+              "$ref": "#/components/schemas/DailyNutritionSummaryWithEntries"
             },
             "type": "array",
             "title": "Nutrition"
