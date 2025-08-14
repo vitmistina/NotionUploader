@@ -4,7 +4,8 @@ import json
 
 from fastapi import APIRouter, HTTPException, Request, Query, Depends
 
-from .redis import RedisClient, get_redis
+from .services.redis import RedisClient, get_redis
+from .services.notion import NotionClient, get_notion_client
 from .settings import Settings, get_settings
 from .strava_activity import process_activity
 
@@ -28,11 +29,12 @@ async def strava_event(
     request: Request,
     redis: RedisClient = Depends(get_redis),
     settings: Settings = Depends(get_settings),
+    client: NotionClient = Depends(get_notion_client),
 ) -> dict[str, str]:
     body = await request.body()
     event = json.loads(body)
     aspect = event.get("aspect_type")
     if event.get("object_type") == "activity" and aspect in {"create", "update"}:
         # Always attempt to upsert the activity to avoid duplicate Notion entries
-        await process_activity(int(event["object_id"]), redis, settings)
+        await process_activity(int(event["object_id"]), redis, settings, client)
     return {"status": "ok"}

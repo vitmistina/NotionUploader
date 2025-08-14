@@ -9,7 +9,8 @@ import httpx
 from fastapi import HTTPException
 
 from .metrics import hr_drift_from_splits, vo2max_minutes
-from .redis import RedisClient
+from .services.redis import RedisClient
+from .services.notion import NotionClient
 from .settings import Settings
 from .strava import refresh_access_token
 from .workout_notion import fetch_latest_athlete_profile, save_workout_to_notion
@@ -42,7 +43,7 @@ async def fetch_activity(
 
 
 async def process_activity(
-    activity_id: int, redis: RedisClient, settings: Settings
+    activity_id: int, redis: RedisClient, settings: Settings, client: NotionClient
 ) -> None:
     """Fetch an activity, compute metrics and upload to Notion.
 
@@ -53,7 +54,7 @@ async def process_activity(
     detail = await fetch_activity(activity_id, redis, settings)
     splits = detail.get("splits_metric", [])
     laps = detail.get("laps", [])
-    athlete = await fetch_latest_athlete_profile(settings)
+    athlete = await fetch_latest_athlete_profile(settings, client)
     max_hr = athlete.get("max_hr")
     ftp = athlete.get("ftp")
     hr_drift = hr_drift_from_splits(splits)
@@ -81,5 +82,6 @@ async def process_activity(
         tss=tss,
         intensity_factor=intensity_factor,
         settings=settings,
+        client=client,
     )
 
