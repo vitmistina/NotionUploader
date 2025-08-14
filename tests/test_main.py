@@ -301,17 +301,16 @@ async def test_strava_webhook_verification() -> None:
 async def test_strava_webhook_event(monkeypatch) -> None:
     called: Dict[str, Any] = {}
 
-    async def fake_process(
-        activity_id: int,
-        redis: DummyRedis,
-        settings: Settings,
-        client: NotionClient,
-    ) -> None:
-        called["id"] = activity_id
-
     from src import strava_webhook as webhook
 
-    monkeypatch.setattr(webhook, "process_activity", fake_process)
+    class DummyService:
+        async def process_activity(self, activity_id: int) -> None:
+            called["id"] = activity_id
+
+    async def override_service() -> DummyService:
+        yield DummyService()
+
+    app.dependency_overrides[webhook.get_strava_activity_service] = override_service
 
     payload = {
         "aspect_type": "create",
@@ -332,23 +331,23 @@ async def test_strava_webhook_event(monkeypatch) -> None:
         )
     assert response.status_code == 200
     assert called["id"] == 42
+    app.dependency_overrides.pop(webhook.get_strava_activity_service, None)
 
 
 @pytest.mark.asyncio
 async def test_strava_webhook_event_update(monkeypatch) -> None:
     called: Dict[str, Any] = {}
 
-    async def fake_process(
-        activity_id: int,
-        redis: DummyRedis,
-        settings: Settings,
-        client: NotionClient,
-    ) -> None:
-        called["id"] = activity_id
-
     from src import strava_webhook as webhook
 
-    monkeypatch.setattr(webhook, "process_activity", fake_process)
+    class DummyService:
+        async def process_activity(self, activity_id: int) -> None:
+            called["id"] = activity_id
+
+    async def override_service() -> DummyService:
+        yield DummyService()
+
+    app.dependency_overrides[webhook.get_strava_activity_service] = override_service
 
     payload = {
         "aspect_type": "update",
@@ -369,23 +368,25 @@ async def test_strava_webhook_event_update(monkeypatch) -> None:
         )
     assert response.status_code == 200
     assert called["id"] == 43
+    app.dependency_overrides.pop(webhook.get_strava_activity_service, None)
 
 
 @pytest.mark.asyncio
 async def test_manual_strava_processing(monkeypatch) -> None:
     called: Dict[str, Any] = {}
 
-    async def fake_process(
-        activity_id: int,
-        redis: DummyRedis,
-        settings: Settings,
-        client: NotionClient,
-    ) -> None:
-        called["id"] = activity_id
-
     from src.routes import strava as strava_routes
 
-    monkeypatch.setattr(strava_routes, "process_activity", fake_process)
+    class DummyService:
+        async def process_activity(self, activity_id: int) -> None:
+            called["id"] = activity_id
+
+    async def override_service() -> DummyService:
+        yield DummyService()
+
+    app.dependency_overrides[
+        strava_routes.get_strava_activity_service
+    ] = override_service
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
@@ -394,6 +395,7 @@ async def test_manual_strava_processing(monkeypatch) -> None:
         )
     assert response.status_code == 200
     assert called["id"] == 99
+    app.dependency_overrides.pop(strava_routes.get_strava_activity_service, None)
 
 
 @pytest.mark.asyncio
@@ -439,64 +441,45 @@ async def test_get_workout_logs(respx_mock: respx.MockRouter) -> None:
 
 @pytest.mark.asyncio
 async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> None:
-    from src import strava_activity as sa
+    from src.services.strava_activity import StravaActivityService
+    from src.models import Lap, Split, StravaActivity
 
-    async def fake_fetch_activity(activity_id: int, redis: DummyRedis, settings: Settings) -> Dict[str, Any]:
-        return {
-            "splits_metric": [
-                {"average_heartrate": 100, "moving_time": 60},
-                {"average_heartrate": 100, "moving_time": 60},
+    async def fake_fetch_activity(self, activity_id: int) -> StravaActivity:
+        return StravaActivity(
+            splits_metric=[
+                Split(average_heartrate=100, moving_time=60),
+                Split(average_heartrate=100, moving_time=60),
             ],
-            "laps": [
-                {
-                    "average_heartrate": 190,
-                    "moving_time": 60,
-                    "max_heartrate": 190,
-                },
-                {
-                    "average_heartrate": 190,
-                    "moving_time": 60,
-                    "max_heartrate": 190,
-                },
-                {
-                    "average_heartrate": 190,
-                    "moving_time": 60,
-                    "max_heartrate": 190,
-                },
+            laps=[
+                Lap(average_heartrate=190, moving_time=60, max_heartrate=190),
+                Lap(average_heartrate=190, moving_time=60, max_heartrate=190),
+                Lap(average_heartrate=190, moving_time=60, max_heartrate=190),
             ],
-            "weighted_average_watts": 210,
-            "moving_time": 180,
-            "description": "desc",
-        }
+            weighted_average_watts=210,
+            moving_time=180,
+            description="desc",
+        )
 
-    async def fake_fetch_profile(
-        settings: Settings, client: NotionClient
-    ) -> Dict[str, Any]:
+    async def fake_fetch_athlete(self) -> Dict[str, Any]:
         return {"ftp": 200, "max_hr": 190}
 
     called: Dict[str, Any] = {}
 
-    async def fake_save(
-        detail: Dict[str, Any],
-        attachment: str,
-        hr_drift: float,
-        vo2: float,
-        *,
-        tss: Optional[float] = None,
-        intensity_factor: Optional[float] = None,
-        settings: Settings,
-        client: NotionClient,
-    ) -> None:
-        called["vo2"] = vo2
-        called["tss"] = tss
-        called["if"] = intensity_factor
-        called["notes"] = detail.get("description")
+    async def fake_persist(self, activity: StravaActivity, metrics: Any) -> None:
+        called["vo2"] = metrics.vo2
+        called["tss"] = metrics.tss
+        called["if"] = metrics.intensity_factor
+        called["notes"] = activity.description
 
-    monkeypatch.setattr(sa, "fetch_activity", fake_fetch_activity)
-    monkeypatch.setattr(sa, "fetch_latest_athlete_profile", fake_fetch_profile)
-    monkeypatch.setattr(sa, "save_workout_to_notion", fake_save)
+    service = StravaActivityService(
+        http_client=None, notion_client=test_notion_client, settings=test_settings, redis=DummyRedis()
+    )
 
-    await sa.process_activity(1, DummyRedis(), test_settings, test_notion_client)
+    monkeypatch.setattr(StravaActivityService, "fetch_activity", fake_fetch_activity)
+    monkeypatch.setattr(StravaActivityService, "fetch_athlete", fake_fetch_athlete)
+    monkeypatch.setattr(StravaActivityService, "persist_to_notion", fake_persist)
+
+    await service.process_activity(1)
 
     assert called["vo2"] == pytest.approx(3.0)
     assert called["if"] == pytest.approx(1.05)
