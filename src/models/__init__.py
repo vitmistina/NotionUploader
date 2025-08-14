@@ -8,6 +8,7 @@ from .nutrition import (
 )
 from .workout import Workout, WorkoutLog, StravaEvent, AthleteMetrics, ComplexAdvice
 from .time import TimeContext
+from .strava import StravaActivity, MetricResults, Split, Lap
 
 __all__ = [
     'BodyMeasurement',
@@ -23,4 +24,8 @@ __all__ = [
     'StravaEvent',
     'AthleteMetrics',
     'ComplexAdvice',
+    'StravaActivity',
+    'MetricResults',
+    'Split',
+    'Lap',
 ]
