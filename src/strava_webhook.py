@@ -4,6 +4,7 @@ import json
 
 from fastapi import APIRouter, HTTPException, Request, Query, Depends
 
+from .redis import RedisClient, get_redis
 from .settings import Settings, get_settings
 from .strava_activity import process_activity
 
@@ -24,12 +25,14 @@ async def verify_subscription(
 
 @webhook_router.post("/strava-webhook", include_in_schema=False)
 async def strava_event(
-    request: Request, settings: Settings = Depends(get_settings)
+    request: Request,
+    redis: RedisClient = Depends(get_redis),
+    settings: Settings = Depends(get_settings),
 ) -> dict[str, str]:
     body = await request.body()
     event = json.loads(body)
     aspect = event.get("aspect_type")
     if event.get("object_type") == "activity" and aspect in {"create", "update"}:
         # Always attempt to upsert the activity to avoid duplicate Notion entries
-        await process_activity(int(event["object_id"]), settings)
+        await process_activity(int(event["object_id"]), redis, settings)
     return {"status": "ok"}

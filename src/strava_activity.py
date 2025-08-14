@@ -9,17 +9,19 @@ import httpx
 from fastapi import HTTPException
 
 from .metrics import hr_drift_from_splits, vo2max_minutes
+from .redis import RedisClient
 from .settings import Settings
-from .strava import get_redis, refresh_access_token
+from .strava import refresh_access_token
 from .workout_notion import fetch_latest_athlete_profile, save_workout_to_notion
 
 
-async def fetch_activity(activity_id: int, settings: Settings) -> dict[str, Any]:
+async def fetch_activity(
+    activity_id: int, redis: RedisClient, settings: Settings
+) -> dict[str, Any]:
     """Fetch a Strava activity by ID."""
-    redis = get_redis(settings)
     access_token = redis.get("strava_access_token")
     if not access_token:
-        access_token = await refresh_access_token(settings)
+        access_token = await refresh_access_token(redis, settings)
         if not access_token:
             raise HTTPException(status_code=500, detail="Auth failure")
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -29,7 +31,7 @@ async def fetch_activity(activity_id: int, settings: Settings) -> dict[str, Any]
             headers=headers,
         )
         if resp.status_code == 401:
-            access_token = await refresh_access_token(settings)
+            access_token = await refresh_access_token(redis, settings)
             headers["Authorization"] = f"Bearer {access_token}"
             resp = await client.get(
                 f"https://www.strava.com/api/v3/activities/{activity_id}",
@@ -39,14 +41,16 @@ async def fetch_activity(activity_id: int, settings: Settings) -> dict[str, Any]
         return resp.json()
 
 
-async def process_activity(activity_id: int, settings: Settings) -> None:
+async def process_activity(
+    activity_id: int, redis: RedisClient, settings: Settings
+) -> None:
     """Fetch an activity, compute metrics and upload to Notion.
 
     An existing Notion page with the same activity id will be updated if
     found; otherwise a new page will be created. This upsert behaviour helps
     avoid duplicate entries when events are retried.
     """
-    detail = await fetch_activity(activity_id, settings)
+    detail = await fetch_activity(activity_id, redis, settings)
     splits = detail.get("splits_metric", [])
     laps = detail.get("laps", [])
     athlete = await fetch_latest_athlete_profile(settings)

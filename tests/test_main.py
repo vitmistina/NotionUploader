@@ -15,6 +15,7 @@ from openapi_spec_validator import validate
 # Ensure the repository root is on the Python path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import main
+from src.redis import get_redis
 from src.settings import Settings, get_settings
 
 test_settings = Settings(
@@ -35,6 +36,20 @@ test_settings = Settings(
 
 app: FastAPI = main.app
 app.dependency_overrides[get_settings] = lambda: test_settings
+
+
+class DummyRedis:
+    def __init__(self) -> None:
+        self.store: Dict[str, str] = {}
+
+    def get(self, key: str) -> Optional[str]:
+        return self.store.get(key)
+
+    def set(self, key: str, value: str, ex: int | None = None) -> None:  # pragma: no cover - expiration unused
+        self.store[key] = value
+
+
+app.dependency_overrides[get_redis] = DummyRedis
 
 
 @pytest.mark.asyncio
@@ -283,7 +298,7 @@ async def test_strava_webhook_verification() -> None:
 async def test_strava_webhook_event(monkeypatch) -> None:
     called: Dict[str, Any] = {}
 
-    async def fake_process(activity_id: int, settings: Settings) -> None:
+    async def fake_process(activity_id: int, redis: DummyRedis, settings: Settings) -> None:
         called["id"] = activity_id
 
     from src import strava_webhook as webhook
@@ -315,7 +330,7 @@ async def test_strava_webhook_event(monkeypatch) -> None:
 async def test_strava_webhook_event_update(monkeypatch) -> None:
     called: Dict[str, Any] = {}
 
-    async def fake_process(activity_id: int, settings: Settings) -> None:
+    async def fake_process(activity_id: int, redis: DummyRedis, settings: Settings) -> None:
         called["id"] = activity_id
 
     from src import strava_webhook as webhook
@@ -347,7 +362,7 @@ async def test_strava_webhook_event_update(monkeypatch) -> None:
 async def test_manual_strava_processing(monkeypatch) -> None:
     called: Dict[str, Any] = {}
 
-    async def fake_process(activity_id: int, settings: Settings) -> None:
+    async def fake_process(activity_id: int, redis: DummyRedis, settings: Settings) -> None:
         called["id"] = activity_id
 
     from src.routes import strava as strava_routes
@@ -408,7 +423,7 @@ async def test_get_workout_logs(respx_mock: respx.MockRouter) -> None:
 async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> None:
     from src import strava_activity as sa
 
-    async def fake_fetch_activity(activity_id: int, settings: Settings) -> Dict[str, Any]:
+    async def fake_fetch_activity(activity_id: int, redis: DummyRedis, settings: Settings) -> Dict[str, Any]:
         return {
             "splits_metric": [
                 {"average_heartrate": 100, "moving_time": 60},
@@ -460,7 +475,7 @@ async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> N
     monkeypatch.setattr(sa, "fetch_latest_athlete_profile", fake_fetch_profile)
     monkeypatch.setattr(sa, "save_workout_to_notion", fake_save)
 
-    await sa.process_activity(1, test_settings)
+    await sa.process_activity(1, DummyRedis(), test_settings)
 
     assert called["vo2"] == pytest.approx(3.0)
     assert called["if"] == pytest.approx(1.05)
@@ -518,7 +533,7 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
             }
         ]
 
-    async def fake_metrics(days: int, settings: Settings) -> List[Dict[str, Any]]:
+    async def fake_metrics(days: int, redis: DummyRedis, settings: Settings) -> List[Dict[str, Any]]:
         return [
             {
                 "measurement_time": "2023-01-01T00:00:00",

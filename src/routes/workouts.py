@@ -9,6 +9,7 @@ from fastapi import APIRouter, Query, Depends
 from ..models.workout import ComplexAdvice, WorkoutLog
 from ..models.time import get_local_time
 from ..nutrition import get_daily_nutrition_summaries
+from ..redis import RedisClient, get_redis
 from ..settings import Settings, get_settings
 from ..withings import get_measurements
 from ..workout_notion import (
@@ -32,12 +33,13 @@ async def list_logged_workouts(
 async def get_complex_advice(
     days: int = Query(7, description="Number of days of data to retrieve."),
     timezone: str = timezone_query,
+    redis: RedisClient = Depends(get_redis),
     settings: Settings = Depends(get_settings),
 ) -> ComplexAdvice:
     end: date = date.today()
     start: date = end - timedelta(days=days - 1)
     nutrition_coro = get_daily_nutrition_summaries(start.isoformat(), end.isoformat(), settings)
-    metrics_coro = get_measurements(days, settings)
+    metrics_coro = get_measurements(days, redis, settings)
     workouts_coro = fetch_workouts_from_notion(days, settings)
     athlete_coro = fetch_latest_athlete_profile(settings)
     nutrition, metrics, workouts, athlete_metrics = await asyncio.gather(
