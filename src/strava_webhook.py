@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
@@ -9,6 +10,8 @@ from .services.strava_activity import (
     StravaActivityService,
     get_strava_activity_service,
 )
+
+logger = logging.getLogger(__name__)
 
 webhook_router = APIRouter()
 
@@ -31,9 +34,21 @@ async def strava_event(
     service: StravaActivityService = Depends(get_strava_activity_service),
 ) -> dict[str, str]:
     body = await request.body()
-    event = json.loads(body)
+
+    try:
+        event = json.loads(body)
+    except json.JSONDecodeError:
+        logger.exception("Invalid Strava webhook payload: %s", body.decode("utf-8", "replace"))
+        raise HTTPException(status_code=400, detail="Invalid payload")
+
     aspect = event.get("aspect_type")
+
     if event.get("object_type") == "activity" and aspect in {"create", "update"}:
-        # Always attempt to upsert the activity to avoid duplicate Notion entries
-        await service.process_activity(int(event["object_id"]))
+        try:
+            # Always attempt to upsert the activity to avoid duplicate Notion entries
+            await service.process_activity(int(event["object_id"]))
+        except Exception:
+            logger.exception("Error processing Strava webhook event: %s", event)
+            raise HTTPException(status_code=400, detail="Error processing webhook")
+
     return {"status": "ok"}
