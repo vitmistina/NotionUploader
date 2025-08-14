@@ -27,12 +27,22 @@ def make_measurement(day: int, value: float | None) -> BodyMeasurement:
     )
 
 
-def test_add_moving_average_partial_window() -> None:
+def test_add_moving_average_requires_three_values() -> None:
     measurements = [make_measurement(1, 10), make_measurement(2, 20)]
+    result = add_moving_average(measurements)
+    assert result[-1].moving_average_7d is None
+
+
+def test_add_moving_average_after_three_values() -> None:
+    measurements = [
+        make_measurement(1, 10),
+        make_measurement(2, 20),
+        make_measurement(3, 30),
+    ]
     result = add_moving_average(measurements)
     avg = result[-1].moving_average_7d
     assert avg is not None
-    assert avg.weight_kg == pytest.approx(15.0)
+    assert avg.weight_kg == pytest.approx(20.0)
 
 
 def test_add_moving_average_excludes_missing_values() -> None:
