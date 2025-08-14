@@ -1,17 +1,13 @@
 from typing import Optional
 
 import httpx
-from upstash_redis import Redis
+
+from .redis import RedisClient
 from .settings import Settings
 
 
-def get_redis(settings: Settings) -> Redis:
-    return Redis(url=settings.upstash_redis_rest_url, token=settings.upstash_redis_rest_token)
-
-
-async def refresh_access_token(settings: Settings) -> Optional[str]:
+async def refresh_access_token(redis: RedisClient, settings: Settings) -> Optional[str]:
     """Refresh the Strava access token using the refresh token stored in Redis."""
-    redis = get_redis(settings)
     refresh_token = redis.get("strava_refresh_token")
     if not refresh_token:
         raise ValueError("No Strava refresh token found in Redis")

@@ -1,18 +1,15 @@
 import time
 from typing import Optional, List
 import httpx
-from upstash_redis import Redis
 from datetime import datetime
+
 from .models.body import BodyMeasurement
 from .metrics import add_moving_average
+from .redis import RedisClient
 from .settings import Settings
 
 
-def get_redis(settings: Settings) -> Redis:
-    return Redis(url=settings.upstash_redis_rest_url, token=settings.upstash_redis_rest_token)
-
-
-async def refresh_access_token(settings: Settings) -> Optional[str]:
+async def refresh_access_token(redis: RedisClient, settings: Settings) -> Optional[str]:
     """
     Refresh the Withings access token using the refresh token stored in Redis.
     
@@ -22,7 +19,6 @@ async def refresh_access_token(settings: Settings) -> Optional[str]:
     Raises:
         ValueError: If refresh token is not found in Redis
     """
-    redis = get_redis(settings)
     refresh_token = redis.get("withings_refresh_token")
     if not refresh_token:
         raise ValueError("No Withings refresh token found in Redis")
@@ -54,7 +50,9 @@ async def refresh_access_token(settings: Settings) -> Optional[str]:
     return None
 
 
-async def get_measurements(days: int, settings: Settings) -> List[BodyMeasurement]:
+async def get_measurements(
+    days: int, redis: RedisClient, settings: Settings
+) -> List[BodyMeasurement]:
     """
     Fetch measurements from Withings API for the last n days.
     Uses access token stored in Redis and attempts to refresh if needed.
@@ -69,10 +67,9 @@ async def get_measurements(days: int, settings: Settings) -> List[BodyMeasuremen
         ValueError: If both access token and refresh token are not found in Redis
         RuntimeError: If unable to get valid authentication
     """
-    redis = get_redis(settings)
     access_token = redis.get("withings_access_token")
     if not access_token:
-        access_token = await refresh_access_token(settings)
+        access_token = await refresh_access_token(redis, settings)
         if not access_token:
             raise ValueError("No valid access token available and refresh failed")
 
@@ -97,7 +94,7 @@ async def get_measurements(days: int, settings: Settings) -> List[BodyMeasuremen
     
     # If we get an unauthorized response, try refreshing the token once
     if response.status_code == 401:
-        new_access_token = await refresh_access_token(settings)
+        new_access_token = await refresh_access_token(redis, settings)
         if new_access_token:
             headers = {'Authorization': f'Bearer {new_access_token}'}
             async with httpx.AsyncClient() as client:
