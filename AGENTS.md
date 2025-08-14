@@ -9,7 +9,8 @@
   ```bash
   pytest -q
   ```
-- As a recurring chore, remove unused imports and keep `requirements.txt` up to date:
+- As a recurring chore, fix all Ruff lint findings and keep `requirements.txt` up to date:
   ```bash
-  ruff check --select F401 src tests
+  ruff check --fix src tests
+  ruff check src tests
   ```
