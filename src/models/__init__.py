@@ -2,11 +2,13 @@ from .body import BodyMeasurement, BodyMeasurementAverages
 from .nutrition import (
     NutritionEntry,
     DailyNutritionSummary,
+    DailyNutritionSummaryWithEntries,
     StatusResponse,
     NutritionEntriesResponse,
     NutritionPeriodResponse,
 )
-from .workout import Workout, WorkoutLog, StravaEvent, AthleteMetrics, ComplexAdvice
+from .workout import Workout, WorkoutLog, StravaEvent
+from .advice import AthleteMetrics, ComplexAdvice
 from .time import TimeContext
 from .strava import StravaActivity, MetricResults, Split, Lap
 
@@ -15,6 +17,7 @@ __all__ = [
     'BodyMeasurementAverages',
     'NutritionEntry',
     'DailyNutritionSummary',
+    'DailyNutritionSummaryWithEntries',
     'StatusResponse',
     'NutritionEntriesResponse',
     'NutritionPeriodResponse',
