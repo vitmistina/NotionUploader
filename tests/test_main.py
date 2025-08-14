@@ -15,6 +15,7 @@ from openapi_spec_validator import validate
 # Ensure the repository root is on the Python path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import main
+from src.services.notion import NotionClient
 from src.settings import Settings, get_settings
 
 test_settings = Settings(
@@ -436,7 +437,9 @@ async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> N
             "description": "desc",
         }
 
-    async def fake_fetch_profile(settings: Settings) -> Dict[str, Any]:
+    async def fake_fetch_profile(
+        settings: Settings, *, client: Optional[NotionClient] = None
+    ) -> Dict[str, Any]:
         return {"ftp": 200, "max_hr": 190}
 
     called: Dict[str, Any] = {}
@@ -450,6 +453,7 @@ async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> N
         tss: Optional[float] = None,
         intensity_factor: Optional[float] = None,
         settings: Settings,
+        client: Optional[NotionClient] = None,
     ) -> None:
         called["vo2"] = vo2
         called["tss"] = tss
@@ -481,7 +485,10 @@ async def test_save_workout_to_notion_updates_existing(respx_mock: respx.MockRou
         return_value=httpx.Response(200, json={"id": "page123"})
     )
 
-    await wn.save_workout_to_notion(detail, "", 0.0, 0.0, settings=test_settings)
+    async with NotionClient(test_settings) as notion:
+        await wn.save_workout_to_notion(
+            detail, "", 0.0, 0.0, settings=test_settings, client=notion
+        )
 
     assert patch_route.called
 
@@ -497,7 +504,10 @@ async def test_save_workout_to_notion_inserts_when_missing(respx_mock: respx.Moc
         return_value=httpx.Response(200, json={"id": "page321"})
     )
 
-    await wn.save_workout_to_notion(detail, "", 0.0, 0.0, settings=test_settings)
+    async with NotionClient(test_settings) as notion:
+        await wn.save_workout_to_notion(
+            detail, "", 0.0, 0.0, settings=test_settings, client=notion
+        )
 
     assert post_route.called
 
@@ -533,7 +543,9 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
             }
         ]
 
-    async def fake_workouts(days: int, settings: Settings) -> List[Dict[str, Any]]:
+    async def fake_workouts(
+        days: int, settings: Settings, *, client: Optional[NotionClient] = None
+    ) -> List[Dict[str, Any]]:
         return [
             {
                 "name": "Run",
@@ -545,7 +557,9 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
             }
         ]
 
-    async def fake_athlete(settings: Settings) -> Dict[str, Any]:
+    async def fake_athlete(
+        settings: Settings, *, client: Optional[NotionClient] = None
+    ) -> Dict[str, Any]:
         return {"ftp": 250.0, "weight": 70.0, "max_hr": 190.0}
 
     from src.routes import workouts as workouts_routes

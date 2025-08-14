@@ -3,24 +3,30 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-import httpx
-
 from .models.workout import WorkoutLog
+from .services.notion import NotionClient
 from .settings import Settings
 
 
-async def fetch_latest_athlete_profile(settings: Settings) -> Dict[str, Any]:
+async def fetch_latest_athlete_profile(
+    settings: Settings,
+    *,
+    client: Optional[NotionClient] = None,
+) -> Dict[str, Any]:
     """Fetch the latest athlete profile entry from Notion."""
-    url = f"https://api.notion.com/v1/databases/{settings.notion_athlete_profile_database_id}/query"
-    payload = {"sorts": [{"property": "Date", "direction": "descending"}], "page_size": 1}
-    headers = {
-        "Authorization": f"Bearer {settings.notion_secret}",
-        "Content-Type": "application/json",
-        "Notion-Version": "2022-06-28",
+    payload = {
+        "sorts": [{"property": "Date", "direction": "descending"}],
+        "page_size": 1,
     }
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(url, json=payload, headers=headers)
-    resp.raise_for_status()
+    if client is None:
+        async with NotionClient(settings) as notion:
+            resp = await notion.query_database(
+                settings.notion_athlete_profile_database_id, payload
+            )
+    else:
+        resp = await client.query_database(
+            settings.notion_athlete_profile_database_id, payload
+        )
     results = resp.json().get("results", [])
     if not results:
         return {}
@@ -46,6 +52,7 @@ async def save_workout_to_notion(
     tss: Optional[float] = None,
     intensity_factor: Optional[float] = None,
     settings: Settings,
+    client: Optional[NotionClient] = None,
 ) -> None:
     """Store a Strava activity detail in the workout database.
 
@@ -85,38 +92,41 @@ async def save_workout_to_notion(
         props["Notes"] = {"rich_text": [{"text": {"content": description}}]}
 
     # Attempt to find an existing page with the same activity id and update it
-    headers = {
-        "Authorization": f"Bearer {settings.notion_secret}",
-        "Content-Type": "application/json",
-        "Notion-Version": "2022-06-28",
-    }
-    query_url = f"https://api.notion.com/v1/databases/{settings.notion_workout_database_id}/query"
     query_payload = {
         "filter": {"property": "Id", "number": {"equals": detail.get("id")}},
         "page_size": 1,
     }
-    async with httpx.AsyncClient() as client:
-        query_resp = await client.post(query_url, json=query_payload, headers=headers)
-    query_resp.raise_for_status()
-    results = query_resp.json().get("results", [])
-    if results:
-        page_id = results[0]["id"]
-        payload = {"properties": props}
-        async with httpx.AsyncClient() as client:
-            update_resp = await client.patch(
-                f"https://api.notion.com/v1/pages/{page_id}",
-                json=payload,
-                headers=headers,
+    if client is None:
+        async with NotionClient(settings) as notion:
+            query_resp = await notion.query_database(
+                settings.notion_workout_database_id, query_payload
             )
-        update_resp.raise_for_status()
-        return
-
-    payload = {"parent": {"database_id": settings.notion_workout_database_id}, "properties": props}
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            "https://api.notion.com/v1/pages", json=payload, headers=headers
+            results = query_resp.json().get("results", [])
+            if results:
+                page_id = results[0]["id"]
+                payload = {"properties": props}
+                await notion.update_page(page_id, payload)
+                return
+            payload = {
+                "parent": {"database_id": settings.notion_workout_database_id},
+                "properties": props,
+            }
+            await notion.create_page(payload)
+    else:
+        query_resp = await client.query_database(
+            settings.notion_workout_database_id, query_payload
         )
-    resp.raise_for_status()
+        results = query_resp.json().get("results", [])
+        if results:
+            page_id = results[0]["id"]
+            payload = {"properties": props}
+            await client.update_page(page_id, payload)
+            return
+        payload = {
+            "parent": {"database_id": settings.notion_workout_database_id},
+            "properties": props,
+        }
+        await client.create_page(payload)
 
 
 def _parse_workout_page(page: Dict[str, Any]) -> Optional[WorkoutLog]:
@@ -159,19 +169,24 @@ def _parse_workout_page(page: Dict[str, Any]) -> Optional[WorkoutLog]:
         return None
 
 
-async def fetch_workouts_from_notion(days: int, settings: Settings) -> List[WorkoutLog]:
+async def fetch_workouts_from_notion(
+    days: int,
+    settings: Settings,
+    *,
+    client: Optional[NotionClient] = None,
+) -> List[WorkoutLog]:
     """Return workouts from the workout database for the last ``days`` days."""
     start = (datetime.utcnow() - timedelta(days=days)).date().isoformat()
-    url = f"https://api.notion.com/v1/databases/{settings.notion_workout_database_id}/query"
     payload = {"filter": {"property": "Date", "date": {"on_or_after": start}}}
-    headers = {
-        "Authorization": f"Bearer {settings.notion_secret}",
-        "Content-Type": "application/json",
-        "Notion-Version": "2022-06-28",
-    }
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(url, json=payload, headers=headers)
-    resp.raise_for_status()
+    if client is None:
+        async with NotionClient(settings) as notion:
+            resp = await notion.query_database(
+                settings.notion_workout_database_id, payload
+            )
+    else:
+        resp = await client.query_database(
+            settings.notion_workout_database_id, payload
+        )
     results = resp.json().get("results", [])
     workouts: List[WorkoutLog] = []
     for page in results:

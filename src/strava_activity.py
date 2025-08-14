@@ -9,6 +9,7 @@ import httpx
 from fastapi import HTTPException
 
 from .metrics import hr_drift_from_splits, vo2max_minutes
+from .services.notion import NotionClient
 from .settings import Settings
 from .strava import get_redis, refresh_access_token
 from .workout_notion import fetch_latest_athlete_profile, save_workout_to_notion
@@ -49,33 +50,35 @@ async def process_activity(activity_id: int, settings: Settings) -> None:
     detail = await fetch_activity(activity_id, settings)
     splits = detail.get("splits_metric", [])
     laps = detail.get("laps", [])
-    athlete = await fetch_latest_athlete_profile(settings)
-    max_hr = athlete.get("max_hr")
-    ftp = athlete.get("ftp")
-    hr_drift = hr_drift_from_splits(splits)
-    splits_for_vo2 = laps if len(laps) > 2 else splits
-    vo2 = vo2max_minutes(splits_for_vo2, max_hr) if max_hr else 0.0
+    async with NotionClient(settings) as notion:
+        athlete = await fetch_latest_athlete_profile(settings, client=notion)
+        max_hr = athlete.get("max_hr")
+        ftp = athlete.get("ftp")
+        hr_drift = hr_drift_from_splits(splits)
+        splits_for_vo2 = laps if len(laps) > 2 else splits
+        vo2 = vo2max_minutes(splits_for_vo2, max_hr) if max_hr else 0.0
 
-    weighted_watts = detail.get("weighted_average_watts")
-    moving_time = detail.get("moving_time")
-    intensity_factor = None
-    tss = None
-    if ftp and weighted_watts:
-        intensity_factor = weighted_watts / ftp
-        if moving_time:
-            tss = (
-                moving_time * weighted_watts * intensity_factor / (ftp * 3600) * 100
-            )
-    minified = json.dumps(detail, separators=(",", ":"))
-    compressed = gzip.compress(minified.encode("utf-8"))
-    attachment = base64.b64encode(compressed).decode("utf-8")
-    await save_workout_to_notion(
-        detail,
-        attachment,
-        hr_drift,
-        vo2,
-        tss=tss,
-        intensity_factor=intensity_factor,
-        settings=settings,
-    )
+        weighted_watts = detail.get("weighted_average_watts")
+        moving_time = detail.get("moving_time")
+        intensity_factor = None
+        tss = None
+        if ftp and weighted_watts:
+            intensity_factor = weighted_watts / ftp
+            if moving_time:
+                tss = (
+                    moving_time * weighted_watts * intensity_factor / (ftp * 3600) * 100
+                )
+        minified = json.dumps(detail, separators=(",", ":"))
+        compressed = gzip.compress(minified.encode("utf-8"))
+        attachment = base64.b64encode(compressed).decode("utf-8")
+        await save_workout_to_notion(
+            detail,
+            attachment,
+            hr_drift,
+            vo2,
+            tss=tss,
+            intensity_factor=intensity_factor,
+            settings=settings,
+            client=notion,
+        )
 
