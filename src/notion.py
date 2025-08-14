@@ -51,14 +51,19 @@ def parse_page(page: Dict[str, Any]) -> Optional[NutritionEntry]:
 async def query_entries(
     filter_payload: Dict[str, Any], settings: Settings, client: NotionAPI
 ) -> List[NutritionEntry]:
-    results: List[Dict[str, Any]] = await client.query(
-        settings.notion_database_id, {"filter": filter_payload}
-    )
+    payload: Dict[str, Any] = {"filter": filter_payload}
     entries: List[NutritionEntry] = []
-    for page in results:
-        entry: Optional[NutritionEntry] = parse_page(page)
-        if entry is not None:
-            entries.append(entry)
+    while True:
+        resp: Dict[str, Any] = await client.query(
+            settings.notion_database_id, payload
+        )
+        for page in resp.get("results", []):
+            entry: Optional[NutritionEntry] = parse_page(page)
+            if entry is not None:
+                entries.append(entry)
+        if not resp.get("has_more"):
+            break
+        payload["start_cursor"] = resp.get("next_cursor")
     return entries
 
 async def entries_on_date(

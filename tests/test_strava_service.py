@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import httpx
 import pytest
@@ -29,8 +29,8 @@ class DummyNotion(NotionAPI):
     def __init__(self) -> None:
         self.created: Dict[str, Any] | None = None
 
-    async def query(self, database_id: str, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
-        return []
+    async def query(self, database_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return {"results": []}
 
     async def create(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         self.created = payload

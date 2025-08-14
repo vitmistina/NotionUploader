@@ -16,9 +16,10 @@ async def fetch_latest_athlete_profile(
         "sorts": [{"property": "Date", "direction": "descending"}],
         "page_size": 1,
     }
-    results = await client.query(
+    resp = await client.query(
         settings.notion_athlete_profile_database_id, payload
     )
+    results = resp.get("results", [])
     if not results:
         return {}
     props = results[0]["properties"]
@@ -87,7 +88,8 @@ async def save_workout_to_notion(
         "filter": {"property": "Id", "number": {"equals": detail.get("id")}},
         "page_size": 1,
     }
-    results = await client.query(settings.notion_workout_database_id, query_payload)
+    resp = await client.query(settings.notion_workout_database_id, query_payload)
+    results = resp.get("results", [])
     if results:
         page_id = results[0]["id"]
         payload = {"properties": props}
@@ -146,7 +148,8 @@ async def fetch_workouts_from_notion(
     """Return workouts from the workout database for the last ``days`` days."""
     start = (datetime.utcnow() - timedelta(days=days)).date().isoformat()
     payload = {"filter": {"property": "Date", "date": {"on_or_after": start}}}
-    results = await client.query(settings.notion_workout_database_id, payload)
+    resp = await client.query(settings.notion_workout_database_id, payload)
+    results = resp.get("results", [])
     workouts: List[WorkoutLog] = []
     for page in results:
         w = _parse_workout_page(page)
