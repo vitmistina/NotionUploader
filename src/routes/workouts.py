@@ -9,7 +9,8 @@ from fastapi import APIRouter, Query, Depends
 from ..models.workout import ComplexAdvice, WorkoutLog
 from ..models.time import get_local_time
 from ..nutrition import get_daily_nutrition_summaries
-from ..services.notion import NotionClient, get_notion_client
+from ..services.interfaces import NotionAPI
+from ..services.notion import get_notion_client
 from ..services.redis import RedisClient, get_redis
 from ..settings import Settings, get_settings
 from ..withings import get_measurements
@@ -26,7 +27,7 @@ router: APIRouter = APIRouter()
 async def list_logged_workouts(
     days: int = Query(7, description="Number of days of logged workouts to retrieve."),
     settings: Settings = Depends(get_settings),
-    client: NotionClient = Depends(get_notion_client),
+    client: NotionAPI = Depends(get_notion_client),
 ) -> List[WorkoutLog]:
     return await fetch_workouts_from_notion(days, settings, client)
 
@@ -37,7 +38,7 @@ async def get_complex_advice(
     timezone: str = timezone_query,
     redis: RedisClient = Depends(get_redis),
     settings: Settings = Depends(get_settings),
-    client: NotionClient = Depends(get_notion_client),
+    client: NotionAPI = Depends(get_notion_client),
 ) -> ComplexAdvice:
     end: date = date.today()
     start: date = end - timedelta(days=days - 1)

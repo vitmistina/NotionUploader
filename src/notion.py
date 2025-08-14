@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from .models.nutrition import NutritionEntry, StatusResponse
-from .services.notion import NotionClient
+from .services.interfaces import NotionAPI
 from .settings import Settings
 
 async def submit_to_notion(
-    entry: NutritionEntry, settings: Settings, client: NotionClient
+    entry: NutritionEntry, settings: Settings, client: NotionAPI
 ) -> StatusResponse:
     """Create a page in the configured Notion database for the entry."""
     payload: Dict[str, Any] = {
@@ -49,7 +49,7 @@ def parse_page(page: Dict[str, Any]) -> Optional[NutritionEntry]:
         return None
 
 async def query_entries(
-    filter_payload: Dict[str, Any], settings: Settings, client: NotionClient
+    filter_payload: Dict[str, Any], settings: Settings, client: NotionAPI
 ) -> List[NutritionEntry]:
     results: List[Dict[str, Any]] = await client.query(
         settings.notion_database_id, {"filter": filter_payload}
@@ -62,7 +62,7 @@ async def query_entries(
     return entries
 
 async def entries_on_date(
-    date: str, settings: Settings, client: NotionClient
+    date: str, settings: Settings, client: NotionAPI
 ) -> List[NutritionEntry]:
     return await query_entries(
         {"property": "Date", "date": {"equals": date}}, settings, client
@@ -72,7 +72,7 @@ async def entries_in_range(
     start_date: str,
     end_date: str,
     settings: Settings,
-    client: NotionClient,
+    client: NotionAPI,
 ) -> List[NutritionEntry]:
     return await query_entries(
         {

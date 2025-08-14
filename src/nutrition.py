@@ -5,12 +5,12 @@ from typing import Dict, List
 
 from .models.nutrition import DailyNutritionSummary, NutritionEntry
 from .notion import entries_in_range
-from .services.notion import NotionClient
+from .services.interfaces import NotionAPI
 from .settings import Settings
 
 
 async def get_daily_nutrition_summaries(
-    start_date: str, end_date: str, settings: Settings, client: NotionClient
+    start_date: str, end_date: str, settings: Settings, client: NotionAPI
 ) -> List[DailyNutritionSummary]:
     """Retrieve nutrition entries for a date range and aggregate by day."""
     entries: List[NutritionEntry] = await entries_in_range(

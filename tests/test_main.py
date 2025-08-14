@@ -298,7 +298,7 @@ async def test_strava_webhook_verification() -> None:
 
 
 @pytest.mark.asyncio
-async def test_strava_webhook_event(monkeypatch) -> None:
+async def test_strava_webhook_event() -> None:
     called: Dict[str, Any] = {}
 
     from src import strava_webhook as webhook
@@ -335,7 +335,7 @@ async def test_strava_webhook_event(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_strava_webhook_event_update(monkeypatch) -> None:
+async def test_strava_webhook_event_update() -> None:
     called: Dict[str, Any] = {}
 
     from src import strava_webhook as webhook
@@ -372,7 +372,7 @@ async def test_strava_webhook_event_update(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_manual_strava_processing(monkeypatch) -> None:
+async def test_manual_strava_processing() -> None:
     called: Dict[str, Any] = {}
 
     from src.routes import strava as strava_routes
@@ -440,51 +440,68 @@ async def test_get_workout_logs(respx_mock: respx.MockRouter) -> None:
 
 
 @pytest.mark.asyncio
-async def test_process_activity_uses_laps_and_computes_metrics(monkeypatch) -> None:
+async def test_process_activity_uses_laps_and_computes_metrics() -> None:
     from src.services.strava_activity import StravaActivityService
-    from src.models import Lap, Split, StravaActivity
+    from src.services.interfaces import NotionAPI
 
-    async def fake_fetch_activity(self, activity_id: int) -> StravaActivity:
-        return StravaActivity(
-            splits_metric=[
-                Split(average_heartrate=100, moving_time=60),
-                Split(average_heartrate=100, moving_time=60),
-            ],
-            laps=[
-                Lap(average_heartrate=190, moving_time=60, max_heartrate=190),
-                Lap(average_heartrate=190, moving_time=60, max_heartrate=190),
-                Lap(average_heartrate=190, moving_time=60, max_heartrate=190),
-            ],
-            weighted_average_watts=210,
-            moving_time=180,
-            description="desc",
-        )
+    class FakeStravaClient:
+        async def get(self, url: str, *, headers: Dict[str, str]) -> httpx.Response:  # type: ignore[override]
+            data = {
+                "splits_metric": [
+                    {"average_heartrate": 100, "moving_time": 60},
+                    {"average_heartrate": 100, "moving_time": 60},
+                ],
+                "laps": [
+                    {"average_heartrate": 190, "moving_time": 60, "max_heartrate": 190},
+                    {"average_heartrate": 190, "moving_time": 60, "max_heartrate": 190},
+                    {"average_heartrate": 190, "moving_time": 60, "max_heartrate": 190},
+                ],
+                "weighted_average_watts": 210,
+                "moving_time": 180,
+                "description": "desc",
+            }
+            return httpx.Response(200, json=data, request=httpx.Request("GET", url))
 
-    async def fake_fetch_athlete(self) -> Dict[str, Any]:
-        return {"ftp": 200, "max_hr": 190}
+    class FakeNotionClient(NotionAPI):
+        def __init__(self) -> None:
+            self.created: Dict[str, Any] | None = None
 
-    called: Dict[str, Any] = {}
+        async def query(self, database_id: str, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+            if database_id == test_settings.notion_athlete_profile_database_id:
+                return [
+                    {
+                        "properties": {
+                            "FTP Watts": {"number": 200},
+                            "Max HR": {"number": 190},
+                        }
+                    }
+                ]
+            return []
 
-    async def fake_persist(self, activity: StravaActivity, metrics: Any) -> None:
-        called["vo2"] = metrics.vo2
-        called["tss"] = metrics.tss
-        called["if"] = metrics.intensity_factor
-        called["notes"] = activity.description
+        async def create(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+            self.created = payload
+            return {"id": "page"}
+
+        async def update(self, page_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:  # pragma: no cover - unused
+            return {"id": page_id}
+
+    redis = DummyRedis()
+    redis.set("strava_access_token", "token")
+    notion = FakeNotionClient()
+    http_client = FakeStravaClient()
 
     service = StravaActivityService(
-        http_client=None, notion_client=test_notion_client, settings=test_settings, redis=DummyRedis()
+        http_client=http_client, notion_client=notion, settings=test_settings, redis=redis
     )
-
-    monkeypatch.setattr(StravaActivityService, "fetch_activity", fake_fetch_activity)
-    monkeypatch.setattr(StravaActivityService, "fetch_athlete", fake_fetch_athlete)
-    monkeypatch.setattr(StravaActivityService, "persist_to_notion", fake_persist)
 
     await service.process_activity(1)
 
-    assert called["vo2"] == pytest.approx(3.0)
-    assert called["if"] == pytest.approx(1.05)
-    assert called["tss"] == pytest.approx(5.5125)
-    assert called["notes"] == "desc"
+    assert notion.created is not None
+    props = notion.created["properties"]
+    assert props["VO2 MAX [min]"]["number"] == pytest.approx(3.0)
+    assert props["IF"]["number"] == pytest.approx(1.05)
+    assert props["TSS"]["number"] == pytest.approx(5.5125)
+    assert props["Notes"]["rich_text"][0]["text"]["content"] == "desc"
 
 
 @pytest.mark.asyncio
