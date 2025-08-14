@@ -13,9 +13,9 @@ def add_moving_average(
 
     Measurements are first sorted by ``measurement_time`` and a simple moving
     average is computed for each metric. ``None`` values are ignored so missing
-    data does not dilute the average. A moving average is always calculated
-    from the values available within the ``window`` size, even if fewer than
-    ``window`` non-missing values are present.
+    data does not dilute the average. A moving average is only calculated when
+    at least three non-missing values are present in the current window for
+    every metric.
 
     Args:
         measurements: Raw body measurements.
@@ -24,7 +24,7 @@ def add_moving_average(
 
     Returns:
         The list of measurements with ``moving_average_7d`` populated when all
-        metrics have at least one non-missing value in the current window.
+        metrics have at least three non-missing values in the current window.
     """
 
     metrics = [
@@ -42,6 +42,7 @@ def add_moving_average(
     )
     queues = {metric: deque(maxlen=window) for metric in metrics}
 
+    min_values = 3
     for m in sorted_measurements:
         for metric in metrics:
             queues[metric].append(getattr(m, metric))
@@ -49,7 +50,7 @@ def add_moving_average(
         averages: dict[str, float] = {}
         for metric in metrics:
             values = [v for v in queues[metric] if v is not None]
-            if values:
+            if len(values) >= min_values:
                 averages[metric] = sum(values) / len(values)
             else:
                 break
