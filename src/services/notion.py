@@ -6,9 +6,10 @@ import httpx
 from fastapi import Depends, HTTPException
 
 from ..settings import Settings, get_settings
+from .interfaces import NotionAPI
 
 
-class NotionClient:
+class NotionClient(NotionAPI):
     """Minimal Notion HTTP client with shared error handling."""
 
     def __init__(self, *, settings: Settings) -> None:
@@ -43,8 +44,7 @@ class NotionClient:
         resp = await self._request("PATCH", f"/pages/{page_id}", json=payload)
         return resp.json()
 
-
-def get_notion_client(settings: Settings = Depends(get_settings)) -> NotionClient:
-    """Dependency that provides a configured :class:`NotionClient` instance."""
+def get_notion_client(settings: Settings = Depends(get_settings)) -> NotionAPI:
+    """Dependency that provides a configured Notion API client."""
 
     return NotionClient(settings=settings)

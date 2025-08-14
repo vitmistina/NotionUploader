@@ -9,7 +9,8 @@ import httpx
 from fastapi import Depends, HTTPException
 
 from .redis import RedisClient, get_redis
-from .notion import NotionClient, get_notion_client
+from .interfaces import NotionAPI
+from .notion import get_notion_client
 from ..settings import Settings, get_settings
 from ..strava import refresh_access_token
 from ..metrics import hr_drift_from_splits, vo2max_minutes
@@ -21,7 +22,7 @@ class StravaActivityService:
     def __init__(
         self,
         http_client: httpx.AsyncClient,
-        notion_client: NotionClient,
+        notion_client: NotionAPI,
         settings: Settings,
         redis: RedisClient,
     ) -> None:
@@ -113,7 +114,7 @@ class StravaActivityService:
 async def get_strava_activity_service(
     redis: RedisClient = Depends(get_redis),
     settings: Settings = Depends(get_settings),
-    notion_client: NotionClient = Depends(get_notion_client),
+    notion_client: NotionAPI = Depends(get_notion_client),
 ) -> AsyncIterator[StravaActivityService]:
     async with httpx.AsyncClient() as http_client:
         yield StravaActivityService(http_client, notion_client, settings, redis)

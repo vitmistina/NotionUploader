@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import httpx
 import pytest
@@ -9,8 +9,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.models import MetricResults, StravaActivity
+from src.services.interfaces import NotionAPI
 from src.services.strava_activity import StravaActivityService
-from src.services.notion import NotionClient
 from src.settings import Settings
 
 
@@ -23,6 +23,21 @@ class DummyRedis:
 
     def set(self, key: str, value: str) -> None:
         self.store[key] = value
+
+
+class DummyNotion(NotionAPI):
+    def __init__(self) -> None:
+        self.created: Dict[str, Any] | None = None
+
+    async def query(self, database_id: str, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+        return []
+
+    async def create(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        self.created = payload
+        return {"id": "page"}
+
+    async def update(self, page_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:  # pragma: no cover - unused
+        return {"id": page_id}
 
 
 settings = Settings(
@@ -41,7 +56,7 @@ settings = Settings(
     strava_client_secret="strava-client-secret",
 )
 
-notion_client = NotionClient(settings=settings)
+notion_client = DummyNotion()
 
 
 @pytest.mark.asyncio
@@ -82,35 +97,18 @@ async def test_compute_metrics() -> None:
 
 
 @pytest.mark.asyncio
-async def test_persist_to_notion(monkeypatch) -> None:
-    service = StravaActivityService(None, notion_client, settings, DummyRedis())
+async def test_persist_to_notion() -> None:
+    notion = DummyNotion()
+    service = StravaActivityService(None, notion, settings, DummyRedis())
     activity = StravaActivity(description="ride")
     metrics = MetricResults(hr_drift=1.0, vo2=2.0, tss=3.0, intensity_factor=0.5)
 
-    called: Dict[str, Any] = {}
-
-    async def fake_save(
-        detail: Dict[str, Any],
-        attachment: str,
-        hr_drift: float,
-        vo2: float,
-        *,
-        tss: float | None,
-        intensity_factor: float | None,
-        settings: Settings,
-        client: NotionClient,
-    ) -> None:
-        called["detail"] = detail
-        called["hr_drift"] = hr_drift
-        called["vo2"] = vo2
-        called["tss"] = tss
-        called["if"] = intensity_factor
-
-    monkeypatch.setattr("src.services.strava_activity.save_workout_to_notion", fake_save)
-
     await service.persist_to_notion(activity, metrics)
-    assert called["detail"]["description"] == "ride"
-    assert called["hr_drift"] == 1.0
-    assert called["vo2"] == 2.0
-    assert called["tss"] == 3.0
-    assert called["if"] == 0.5
+
+    assert notion.created is not None
+    props = notion.created["properties"]
+    assert props["Notes"]["rich_text"][0]["text"]["content"] == "ride"
+    assert props["HR drift [%]"]["number"] == 1.0
+    assert props["VO2 MAX [min]"]["number"] == 2.0
+    assert props["TSS"]["number"] == 3.0
+    assert props["IF"]["number"] == 0.5

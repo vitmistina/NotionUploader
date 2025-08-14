@@ -4,12 +4,12 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from .models.workout import WorkoutLog
-from .services.notion import NotionClient
+from .services.interfaces import NotionAPI
 from .settings import Settings
 
 
 async def fetch_latest_athlete_profile(
-    settings: Settings, client: NotionClient
+    settings: Settings, client: NotionAPI
 ) -> Dict[str, Any]:
     """Fetch the latest athlete profile entry from Notion."""
     payload = {
@@ -43,7 +43,7 @@ async def save_workout_to_notion(
     tss: Optional[float] = None,
     intensity_factor: Optional[float] = None,
     settings: Settings,
-    client: NotionClient,
+    client: NotionAPI,
 ) -> None:
     """Store a Strava activity detail in the workout database.
 
@@ -141,7 +141,7 @@ def _parse_workout_page(page: Dict[str, Any]) -> Optional[WorkoutLog]:
 
 
 async def fetch_workouts_from_notion(
-    days: int, settings: Settings, client: NotionClient
+    days: int, settings: Settings, client: NotionAPI
 ) -> List[WorkoutLog]:
     """Return workouts from the workout database for the last ``days`` days."""
     start = (datetime.utcnow() - timedelta(days=days)).date().isoformat()
