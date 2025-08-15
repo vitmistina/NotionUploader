@@ -57,13 +57,13 @@ async def save_workout_to_notion(
     day_of_week = datetime.fromisoformat(date_only).strftime("%A")
 
     props: Dict[str, Any] = {
-        "Name": {"title": [{"text": {"content": detail.get("name", "")}}]},
+        "Name": {"title": [{"text": {"content": detail["name"]}}]},
         "Date": {"date": {"start": date_only}},
         "Duration [s]": {"number": detail.get("elapsed_time")},
         "Distance [m]": {"number": detail.get("distance")},
         "Elevation [m]": {"number": detail.get("total_elevation_gain")},
         "Type": {"rich_text": [{"text": {"content": str(detail.get("type", ""))}}]},
-        "Id": {"number": detail.get("id")},
+        "Id": {"number": detail["id"]},
         "Day of week": {"select": {"name": day_of_week}},
     }
 
@@ -85,7 +85,7 @@ async def save_workout_to_notion(
 
     # Attempt to find an existing page with the same activity id and update it
     query_payload = {
-        "filter": {"property": "Id", "number": {"equals": detail.get("id")}},
+        "filter": {"property": "Id", "number": {"equals": detail["id"]}},
         "page_size": 1,
     }
     resp = await client.query(settings.notion_workout_database_id, query_payload)
