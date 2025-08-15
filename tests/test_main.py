@@ -466,6 +466,8 @@ async def test_process_activity_uses_laps_and_computes_metrics() -> None:
     class FakeStravaClient:
         async def get(self, url: str, *, headers: Dict[str, str]) -> httpx.Response:  # type: ignore[override]
             data = {
+                "id": 1,
+                "name": "Ride",
                 "splits_metric": [
                     {"average_heartrate": 100, "moving_time": 60},
                     {"average_heartrate": 100, "moving_time": 60},

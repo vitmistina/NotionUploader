@@ -66,13 +66,17 @@ async def test_fetch_activity_returns_model() -> None:
 
     async def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers["Authorization"] == "Bearer abc"
-        return httpx.Response(200, json={"splits_metric": [], "laps": []})
+        return httpx.Response(
+            200, json={"id": 1, "name": "Run", "splits_metric": [], "laps": []}
+        )
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as client:
         service = StravaActivityService(client, notion_client, settings, redis)
         activity = await service.fetch_activity(1)
     assert isinstance(activity, StravaActivity)
+    assert activity.id == 1
+    assert activity.name == "Run"
     assert activity.splits_metric == []
 
 
@@ -80,6 +84,8 @@ async def test_fetch_activity_returns_model() -> None:
 async def test_compute_metrics() -> None:
     service = StravaActivityService(None, notion_client, settings, DummyRedis())
     activity = StravaActivity(
+        id=1,
+        name="Ride",
         splits_metric=[{"average_heartrate": 100, "moving_time": 60}],
         laps=[
             {"average_heartrate": 190, "moving_time": 60, "max_heartrate": 190},
@@ -100,7 +106,7 @@ async def test_compute_metrics() -> None:
 async def test_persist_to_notion() -> None:
     notion = DummyNotion()
     service = StravaActivityService(None, notion, settings, DummyRedis())
-    activity = StravaActivity(description="ride")
+    activity = StravaActivity(id=1, name="Ride", description="ride")
     metrics = MetricResults(hr_drift=1.0, vo2=2.0, tss=3.0, intensity_factor=0.5)
 
     await service.persist_to_notion(activity, metrics)
