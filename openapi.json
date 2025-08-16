@@ -25,7 +25,9 @@
           {
             "ApiKeyAuth": []
           }
-        ]
+        ],
+        "x-openai-isConsequential": false,
+        "is_consequential": false
       }
     },
     "/v2/nutrition-entries": {
@@ -68,7 +70,9 @@
           {
             "ApiKeyAuth": []
           }
-        ]
+        ],
+        "x-openai-isConsequential": false,
+        "is_consequential": false
       }
     },
     "/v2/nutrition-entries/daily/{date}": {
@@ -126,7 +130,9 @@
               }
             }
           }
-        }
+        },
+        "x-openai-isConsequential": false,
+        "is_consequential": false
       }
     },
     "/v2/nutrition-entries/period": {
@@ -195,7 +201,9 @@
               }
             }
           }
-        }
+        },
+        "x-openai-isConsequential": false,
+        "is_consequential": false
       }
     },
     "/v2/body-measurements": {
@@ -247,7 +255,9 @@
               }
             }
           }
-        }
+        },
+        "x-openai-isConsequential": false,
+        "is_consequential": false
       }
     },
     "/v2/workout-logs": {
@@ -298,7 +308,9 @@
               }
             }
           }
-        }
+        },
+        "x-openai-isConsequential": false,
+        "is_consequential": false
       }
     },
     "/v2/complex-advice": {
@@ -357,7 +369,9 @@
               }
             }
           }
-        }
+        },
+        "x-openai-isConsequential": false,
+        "is_consequential": false
       }
     }
   },
