@@ -209,7 +209,7 @@
     "/v2/body-measurements": {
       "get": {
         "summary": "List Body Measurements",
-        "description": "Get body measurements from Withings scale for the specified number of days.",
+        "description": "Get body measurements and linear regression trends.",
         "operationId": "list_body_measurements_v2_body_measurements_get",
         "security": [
           {
@@ -236,11 +236,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/BodyMeasurement"
-                  },
-                  "title": "Response List Body Measurements V2 Body Measurements Get"
+                  "$ref": "#/components/schemas/BodyMeasurementsResponse"
                 }
               }
             }
@@ -553,6 +549,74 @@
         "title": "BodyMeasurementAverages",
         "description": "7-day moving averages for body measurements."
       },
+      "BodyMeasurementsResponse": {
+        "properties": {
+          "measurements": {
+            "items": {
+              "$ref": "#/components/schemas/BodyMeasurement"
+            },
+            "type": "array",
+            "title": "Measurements"
+          },
+          "trends": {
+            "$ref": "#/components/schemas/BodyMetricTrends"
+          }
+        },
+        "type": "object",
+        "required": [
+          "measurements",
+          "trends"
+        ],
+        "title": "BodyMeasurementsResponse",
+        "description": "Collection of measurements with derived linear regression trends."
+      },
+      "BodyMetricTrends": {
+        "properties": {
+          "weight_kg": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LinearRegressionResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "body_fat_percent": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LinearRegressionResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "muscle_mass_kg": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LinearRegressionResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fat_mass_kg": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LinearRegressionResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "BodyMetricTrends",
+        "description": "Linear regression trends for core body metrics."
+      },
       "ComplexAdvice": {
         "properties": {
           "local_time": {
@@ -585,6 +649,9 @@
             "type": "array",
             "title": "Metrics"
           },
+          "metric_trends": {
+            "$ref": "#/components/schemas/BodyMetricTrends"
+          },
           "workouts": {
             "items": {
               "$ref": "#/components/schemas/WorkoutLog"
@@ -602,6 +669,7 @@
           "part_of_day",
           "nutrition",
           "metrics",
+          "metric_trends",
           "workouts",
           "athlete_metrics"
         ],
@@ -696,6 +764,30 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "LinearRegressionResult": {
+        "properties": {
+          "slope": {
+            "type": "number",
+            "title": "Slope"
+          },
+          "intercept": {
+            "type": "number",
+            "title": "Intercept"
+          },
+          "r2": {
+            "type": "number",
+            "title": "R2"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slope",
+          "intercept",
+          "r2"
+        ],
+        "title": "LinearRegressionResult",
+        "description": "Slope, intercept, and coefficient of determination for a metric."
       },
       "NutritionEntriesResponse": {
         "properties": {

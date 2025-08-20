@@ -1,4 +1,10 @@
-from .body import BodyMeasurement, BodyMeasurementAverages
+from .body import (
+    BodyMeasurement,
+    BodyMeasurementAverages,
+    BodyMeasurementsResponse,
+    BodyMetricTrends,
+    LinearRegressionResult,
+)
 from .nutrition import (
     NutritionEntry,
     DailyNutritionSummary,
@@ -15,6 +21,9 @@ from .strava import StravaActivity, MetricResults, Split, Lap
 __all__ = [
     'BodyMeasurement',
     'BodyMeasurementAverages',
+    'BodyMeasurementsResponse',
+    'BodyMetricTrends',
+    'LinearRegressionResult',
     'NutritionEntry',
     'DailyNutritionSummary',
     'DailyNutritionSummaryWithEntries',

@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import httpx
 import json
@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import main
 from src.services.redis import get_redis
 from src.services.notion import NotionClient
+from src.models.body import BodyMeasurement
 from src.settings import Settings, get_settings
 
 test_settings = Settings(
@@ -566,6 +567,58 @@ async def test_save_workout_to_notion_inserts_when_missing(respx_mock: respx.Moc
 
 
 @pytest.mark.asyncio
+async def test_body_measurements_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_measurements(
+        days: int, redis: DummyRedis, settings: Settings
+    ) -> List[BodyMeasurement]:
+        base = datetime(2023, 1, 1)
+        return [
+            BodyMeasurement.model_construct(
+                measurement_time=base,
+                weight_kg=70.0,
+                fat_mass_kg=10.0,
+                muscle_mass_kg=30.0,
+                bone_mass_kg=5.0,
+                hydration_kg=40.0,
+                fat_free_mass_kg=60.0,
+                body_fat_percent=14.0,
+                device_name="Scale",
+            ),
+            BodyMeasurement.model_construct(
+                measurement_time=base + timedelta(days=2),
+                weight_kg=72.0,
+                fat_mass_kg=11.0,
+                muscle_mass_kg=31.0,
+                bone_mass_kg=5.0,
+                hydration_kg=40.0,
+                fat_free_mass_kg=60.0,
+                body_fat_percent=15.0,
+                device_name="Scale",
+            ),
+        ]
+
+    from src.routes import metrics as metrics_routes
+
+    monkeypatch.setattr(metrics_routes, "get_measurements", fake_measurements)
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response: httpx.Response = await client.get(
+            "/v2/body-measurements", headers={"x-api-key": "test-key"}
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "measurements" in payload
+    assert "trends" in payload
+    assert "weight_kg" in payload["trends"]
+    trend = payload["trends"]["weight_kg"]
+    assert trend["slope"] == pytest.approx(1.0)
+    assert trend["intercept"] == pytest.approx(70.0)
+    assert trend["r2"] == pytest.approx(1.0)
+
+
+@pytest.mark.asyncio
 async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_nutrition(
         start: str, end: str, settings: Settings, client: NotionClient
@@ -592,19 +645,33 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
             }
         ]
 
-    async def fake_metrics(days: int, redis: DummyRedis, settings: Settings) -> List[Dict[str, Any]]:
+    async def fake_metrics(
+        days: int, redis: DummyRedis, settings: Settings
+    ) -> List[BodyMeasurement]:
+        base = datetime(2023, 1, 1)
         return [
-            {
-                "measurement_time": "2023-01-01T00:00:00",
-                "weight_kg": 70.0,
-                "fat_mass_kg": 10.0,
-                "muscle_mass_kg": 30.0,
-                "bone_mass_kg": 5.0,
-                "hydration_kg": 40.0,
-                "fat_free_mass_kg": 60.0,
-                "body_fat_percent": 14.0,
-                "device_name": "Scale",
-            }
+            BodyMeasurement.model_construct(
+                measurement_time=base,
+                weight_kg=70.0,
+                fat_mass_kg=10.0,
+                muscle_mass_kg=30.0,
+                bone_mass_kg=5.0,
+                hydration_kg=40.0,
+                fat_free_mass_kg=60.0,
+                body_fat_percent=14.0,
+                device_name="Scale",
+            ),
+            BodyMeasurement.model_construct(
+                measurement_time=base + timedelta(days=2),
+                weight_kg=72.0,
+                fat_mass_kg=11.0,
+                muscle_mass_kg=31.0,
+                bone_mass_kg=5.0,
+                hydration_kg=40.0,
+                fat_free_mass_kg=60.0,
+                body_fat_percent=15.0,
+                device_name="Scale",
+            ),
         ]
 
     async def fake_workouts(
@@ -647,5 +714,10 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "nutrition" in data
     assert data["nutrition"][0]["entries"][0]["food_item"] == "Food"
     assert "metrics" in data
+    assert "metric_trends" in data
+    trend = data["metric_trends"]["weight_kg"]
+    assert trend["slope"] == pytest.approx(1.0)
+    assert trend["intercept"] == pytest.approx(70.0)
+    assert trend["r2"] == pytest.approx(1.0)
     assert "workouts" in data
     assert "athlete_metrics" in data
