@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from fastapi import APIRouter, Depends, Query
 
 from ..models.advice import ComplexAdvice
+from ..models.body import BodyMetricTrends
 from ..models.time import get_local_time
 from ..nutrition import get_daily_nutrition_summaries
 from ..services.interfaces import NotionAPI
@@ -13,6 +14,7 @@ from ..services.notion import get_notion_client
 from ..services.redis import RedisClient, get_redis
 from ..settings import Settings, get_settings
 from ..withings import get_measurements
+from ..metrics import linear_regression
 from ..workout_notion import (
     fetch_latest_athlete_profile,
     fetch_workouts_from_notion,
@@ -41,10 +43,12 @@ async def get_complex_advice(
     nutrition, metrics, workouts, athlete_metrics = await asyncio.gather(
         nutrition_coro, metrics_coro, workouts_coro, athlete_coro
     )
+    trends = BodyMetricTrends(**linear_regression(metrics))
     local_time, part = get_local_time(timezone)
     return ComplexAdvice(
         nutrition=nutrition,
         metrics=metrics,
+        metric_trends=trends,
         workouts=workouts,
         athlete_metrics=athlete_metrics,
         local_time=local_time,

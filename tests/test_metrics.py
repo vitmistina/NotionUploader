@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.metrics import add_moving_average
+from src.metrics import add_moving_average, linear_regression
 from src.models.body import BodyMeasurement
 
 
@@ -63,3 +63,42 @@ def test_add_moving_average_excludes_missing_values() -> None:
     # Only four non-missing values contribute to the average
     values = [m.weight_kg for m in measurements if m.weight_kg is not None]
     assert len(values) == 4
+
+
+def test_linear_regression_perfect_trend() -> None:
+    measurements = [
+        make_measurement(1, 70),
+        make_measurement(2, 71),
+        make_measurement(3, 72),
+    ]
+    results = linear_regression(measurements)
+    weight = results["weight_kg"]
+    assert weight.slope == pytest.approx(1.0)
+    assert weight.intercept == pytest.approx(70.0)
+    assert weight.r2 == pytest.approx(1.0)
+
+
+def test_linear_regression_ignores_missing_values() -> None:
+    measurements = [
+        make_measurement(1, 70),
+        make_measurement(2, None),
+        make_measurement(3, 72),
+    ]
+    results = linear_regression(measurements)
+    weight = results["weight_kg"]
+    assert weight.slope == pytest.approx(1.0)
+    assert weight.intercept == pytest.approx(70.0)
+
+
+def test_linear_regression_respects_measurement_time() -> None:
+    measurements = [
+        make_measurement(1, 70),
+        make_measurement(3, 71),
+        make_measurement(5, 72),
+    ]
+    results = linear_regression(measurements)
+    weight = results["weight_kg"]
+    # Measurements span four days with a total increase of 2 kg
+    assert weight.slope == pytest.approx(0.5)
+    assert weight.intercept == pytest.approx(70.0)
+    assert weight.r2 == pytest.approx(1.0)

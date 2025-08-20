@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -64,3 +64,28 @@ class BodyMeasurement(BaseModel):
                 "device_name": "Withings Body+",
             }
         }
+
+
+class LinearRegressionResult(BaseModel):
+    """Slope, intercept, and coefficient of determination for a metric."""
+
+    slope: float
+    intercept: float
+    r2: float
+
+
+class BodyMetricTrends(BaseModel):
+    """Linear regression trends for core body metrics."""
+
+    weight_kg: Optional[LinearRegressionResult] = None
+    body_fat_percent: Optional[LinearRegressionResult] = None
+    muscle_mass_kg: Optional[LinearRegressionResult] = None
+    fat_mass_kg: Optional[LinearRegressionResult] = None
+
+
+class BodyMeasurementsResponse(BaseModel):
+    """Collection of measurements with derived linear regression trends."""
+
+    measurements: List[BodyMeasurement]
+    trends: BodyMetricTrends
+

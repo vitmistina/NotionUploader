@@ -5,7 +5,7 @@ from typing import List
 from pydantic import BaseModel
 
 from .time import TimeContext
-from .body import BodyMeasurement
+from .body import BodyMeasurement, BodyMetricTrends
 from .nutrition import DailyNutritionSummaryWithEntries
 from .workout import WorkoutLog
 
@@ -23,5 +23,6 @@ class ComplexAdvice(TimeContext):
 
     nutrition: List[DailyNutritionSummaryWithEntries]
     metrics: List[BodyMeasurement]
+    metric_trends: BodyMetricTrends
     workouts: List[WorkoutLog]
     athlete_metrics: AthleteMetrics
