@@ -96,7 +96,7 @@ async def test_log_nutrition_success(respx_mock: respx.MockRouter) -> None:
         "protein_g": 0.5,
         "carbs_g": 25,
         "fat_g": 0.3,
-        "meal_type": "Snack",
+        "meal_type": "During-workout",
         "notes": "Fresh",
     }
     transport: httpx.ASGITransport = httpx.ASGITransport(app=app)
@@ -129,7 +129,7 @@ async def test_log_nutrition_error(respx_mock: respx.MockRouter) -> None:
         "protein_g": 0.5,
         "carbs_g": 25,
         "fat_g": 0.3,
-        "meal_type": "Snack",
+        "meal_type": "During-workout",
         "notes": "Fresh",
     }
     transport: httpx.ASGITransport = httpx.ASGITransport(app=app)

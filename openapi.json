@@ -862,6 +862,7 @@
               "Dinner",
               "Snack",
               "Pre-workout",
+              "During-workout",
               "Post-workout"
             ],
             "title": "Meal Type"
