@@ -103,6 +103,36 @@ async def test_compute_metrics() -> None:
 
 
 @pytest.mark.asyncio
+async def test_compute_metrics_without_heart_rate() -> None:
+    service = StravaActivityService(None, notion_client, settings, DummyRedis())
+    activity = StravaActivity(
+        id=2,
+        name="Ride",
+        splits_metric=[
+            {"average_heartrate": None, "moving_time": 60},
+            {"average_heartrate": None, "moving_time": 60},
+        ],
+        laps=[
+            {
+                "average_heartrate": None,
+                "moving_time": 120,
+                "max_heartrate": None,
+            }
+        ],
+        weighted_average_watts=200,
+        moving_time=120,
+    )
+    athlete = {"max_hr": 190, "ftp": 200}
+
+    metrics = service.compute_metrics(activity, athlete)
+
+    assert metrics.hr_drift == 0.0
+    assert metrics.vo2 == 0.0
+    assert metrics.intensity_factor == pytest.approx(1.0)
+    assert metrics.tss == pytest.approx(3.3333333333333335)
+
+
+@pytest.mark.asyncio
 async def test_persist_to_notion() -> None:
     notion = DummyNotion()
     service = StravaActivityService(None, notion, settings, DummyRedis())

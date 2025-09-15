@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.metrics import add_moving_average, linear_regression
+from src.metrics import add_moving_average, hr_drift_from_splits, linear_regression
 from src.models.body import BodyMeasurement
 
 
@@ -102,3 +102,25 @@ def test_linear_regression_respects_measurement_time() -> None:
     assert weight.slope == pytest.approx(0.5)
     assert weight.intercept == pytest.approx(70.0)
     assert weight.r2 == pytest.approx(1.0)
+
+
+def test_hr_drift_handles_missing_values() -> None:
+    splits = [
+        {"average_heartrate": None},
+        {"average_heartrate": 150},
+        {"average_heartrate": None},
+        {"average_heartrate": 155},
+    ]
+
+    drift = hr_drift_from_splits(splits)
+
+    assert drift == pytest.approx((155 - 150) / 150 * 100)
+
+
+def test_hr_drift_without_heart_rate_data_returns_zero() -> None:
+    splits = [
+        {"average_heartrate": None},
+        {"average_heartrate": None},
+    ]
+
+    assert hr_drift_from_splits(splits) == 0.0

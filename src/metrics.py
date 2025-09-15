@@ -133,15 +133,37 @@ def linear_regression(
 
 def hr_drift_from_splits(splits: List[dict[str, Any]]) -> float:
     """Calculate heart rate drift percentage from distance splits."""
+
     if not splits:
         return 0.0
+
     half = len(splits) // 2
     if half == 0:
         return 0.0
-    first_avg = sum(s.get("average_heartrate", 0) for s in splits[:half]) / half
-    second_avg = sum(s.get("average_heartrate", 0) for s in splits[half:]) / (len(splits) - half)
-    if first_avg == 0:
+
+    def average_hr(values: List[dict[str, Any]]) -> Optional[float]:
+        hrs: List[float] = []
+        for split in values:
+            hr = split.get("average_heartrate")
+            if hr is None:
+                continue
+            try:
+                hr_value = float(hr)
+            except (TypeError, ValueError):
+                continue
+            if hr_value <= 0:
+                continue
+            hrs.append(hr_value)
+        if not hrs:
+            return None
+        return sum(hrs) / len(hrs)
+
+    first_avg = average_hr(splits[:half])
+    second_avg = average_hr(splits[half:])
+
+    if first_avg is None or second_avg is None or first_avg == 0:
         return 0.0
+
     return (second_avg - first_avg) / first_avg * 100
 
 
@@ -192,9 +214,9 @@ def vo2max_minutes(
     total_vo2_seconds: float = 0.0
 
     for split in splits:
-        lap_seconds = split.get("moving_time", 0)
-        avg_hr = split.get("average_heartrate", 0)
-        peak_hr = split.get("max_heartrate", 0)
+        lap_seconds = split.get("moving_time") or 0
+        avg_hr = split.get("average_heartrate") or 0
+        peak_hr = split.get("max_heartrate") or 0
 
         if lap_seconds <= 0 or avg_hr <= 0 or peak_hr <= 0:
             continue
