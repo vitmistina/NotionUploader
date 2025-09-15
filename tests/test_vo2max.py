@@ -121,3 +121,16 @@ def test_vo2max_invalid_splits():
     # Should handle invalid data gracefully
     result = vo2max_minutes(splits, max_hr)
     assert result == 0.0
+
+
+def test_vo2max_missing_heart_rate_data():
+    """Splits without heart-rate data should produce zero VO2 time."""
+    max_hr = 190
+    splits = [
+        {"moving_time": 60, "average_heartrate": None, "max_heartrate": 180},
+        {"moving_time": 60, "average_heartrate": 175, "max_heartrate": None},
+    ]
+
+    result = vo2max_minutes(splits, max_hr)
+
+    assert result == 0.0
