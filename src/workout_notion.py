@@ -104,6 +104,26 @@ async def save_workout_to_notion(
 
 def _parse_workout_page(page: Dict[str, Any]) -> Optional[WorkoutLog]:
     props = page["properties"]
+
+    def _get_number(name: str, default: float = 0.0) -> float:
+        value = props.get(name, {}).get("number")
+        return value if value is not None else default
+
+    def _get_optional_number(name: str) -> Optional[float]:
+        return props.get(name, {}).get("number")
+
+    def _get_title(name: str) -> str:
+        title_data = props.get(name, {}).get("title", [])
+        if title_data:
+            return title_data[0].get("text", {}).get("content", "")
+        return ""
+
+    def _get_date(name: str) -> str:
+        date_data = props.get(name, {}).get("date")
+        if date_data:
+            return date_data.get("start") or ""
+        return ""
+
     try:
         type_value = ""
         if props.get("Type", {}).get("rich_text"):
@@ -112,23 +132,23 @@ def _parse_workout_page(page: Dict[str, Any]) -> Optional[WorkoutLog]:
             type_value = props["Type"]["select"]["name"]
 
         return WorkoutLog(
-            name=props["Name"]["title"][0]["text"]["content"] if props["Name"]["title"] else "",
-            date=props["Date"]["date"]["start"] if props["Date"]["date"] else "",
-            duration_s=props["Duration [s]"]["number"],
-            distance_m=props["Distance [m]"]["number"],
-            elevation_m=props["Elevation [m]"]["number"],
+            name=_get_title("Name"),
+            date=_get_date("Date"),
+            duration_s=_get_number("Duration [s]"),
+            distance_m=_get_number("Distance [m]"),
+            elevation_m=_get_number("Elevation [m]"),
             type=type_value,
-            average_cadence=props.get("Average Cadence", {}).get("number"),
-            average_watts=props.get("Average Watts", {}).get("number"),
-            weighted_average_watts=props.get("Weighted Average Watts", {}).get("number"),
-            kilojoules=props.get("Kilojoules", {}).get("number"),
-            kcal=props.get("Kcal", {}).get("number"),
-            average_heartrate=props.get("Average Heartrate", {}).get("number"),
-            max_heartrate=props.get("Max Heartrate", {}).get("number"),
-            hr_drift_percent=props.get("HR drift [%]", {}).get("number"),
-            vo2max_minutes=props.get("VO2 MAX [min]", {}).get("number"),
-            tss=props.get("TSS", {}).get("number"),
-            intensity_factor=props.get("IF", {}).get("number"),
+            average_cadence=_get_optional_number("Average Cadence"),
+            average_watts=_get_optional_number("Average Watts"),
+            weighted_average_watts=_get_optional_number("Weighted Average Watts"),
+            kilojoules=_get_optional_number("Kilojoules"),
+            kcal=_get_optional_number("Kcal"),
+            average_heartrate=_get_optional_number("Average Heartrate"),
+            max_heartrate=_get_optional_number("Max Heartrate"),
+            hr_drift_percent=_get_optional_number("HR drift [%]"),
+            vo2max_minutes=_get_optional_number("VO2 MAX [min]"),
+            tss=_get_optional_number("TSS"),
+            intensity_factor=_get_optional_number("IF"),
             notes=(
                 props.get("Notes", {})
                 .get("rich_text", [{}])[0]
