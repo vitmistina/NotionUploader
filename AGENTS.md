@@ -5,6 +5,11 @@
   python generate_openapi.py
   ```
   Commit the updated `openapi.json` alongside code changes.
+- Always work inside a project-local virtual environment when installing or upgrading dependencies:
+  ```bash
+  python -m venv .venv
+  source .venv/bin/activate
+  ```
 - Run the test suite before committing changes:
   ```bash
   pytest -q
@@ -14,3 +19,4 @@
   ruff check --fix src tests
   ruff check src tests
   ```
+- As a recurring chore, reread the `README.md` after each change and update any sections impacted by your work before merging.
