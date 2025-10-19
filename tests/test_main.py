@@ -337,7 +337,9 @@ async def test_strava_webhook_event() -> None:
     async def override_service() -> DummyService:
         yield DummyService()
 
-    app.dependency_overrides[webhook.get_strava_activity_service] = override_service
+    app.dependency_overrides[
+        webhook.get_strava_activity_coordinator
+    ] = override_service
 
     payload = {
         "aspect_type": "create",
@@ -358,7 +360,7 @@ async def test_strava_webhook_event() -> None:
         )
     assert response.status_code == 200
     assert called["id"] == 42
-    app.dependency_overrides.pop(webhook.get_strava_activity_service, None)
+    app.dependency_overrides.pop(webhook.get_strava_activity_coordinator, None)
 
 
 @pytest.mark.asyncio
@@ -374,7 +376,9 @@ async def test_strava_webhook_event_update() -> None:
     async def override_service() -> DummyService:
         yield DummyService()
 
-    app.dependency_overrides[webhook.get_strava_activity_service] = override_service
+    app.dependency_overrides[
+        webhook.get_strava_activity_coordinator
+    ] = override_service
 
     payload = {
         "aspect_type": "update",
@@ -395,7 +399,7 @@ async def test_strava_webhook_event_update() -> None:
         )
     assert response.status_code == 200
     assert called["id"] == 43
-    app.dependency_overrides.pop(webhook.get_strava_activity_service, None)
+    app.dependency_overrides.pop(webhook.get_strava_activity_coordinator, None)
 
 
 @pytest.mark.asyncio
@@ -412,7 +416,7 @@ async def test_manual_strava_processing() -> None:
         yield DummyService()
 
     app.dependency_overrides[
-        strava_routes.get_strava_activity_service
+        strava_routes.get_strava_activity_coordinator
     ] = override_service
 
     transport = httpx.ASGITransport(app=app)
@@ -422,7 +426,9 @@ async def test_manual_strava_processing() -> None:
         )
     assert response.status_code == 200
     assert called["id"] == 99
-    app.dependency_overrides.pop(strava_routes.get_strava_activity_service, None)
+    app.dependency_overrides.pop(
+        strava_routes.get_strava_activity_coordinator, None
+    )
 
 
 @pytest.mark.asyncio
@@ -468,13 +474,13 @@ async def test_get_workout_logs(respx_mock: respx.MockRouter) -> None:
 
 @pytest.mark.asyncio
 async def test_process_activity_uses_laps_and_computes_metrics() -> None:
-    from src.services.strava_activity import StravaActivityService
     from src.services.interfaces import NotionAPI
+    from src.strava import StravaActivityCoordinator
 
     class FakeStravaClient:
-        async def get(self, url: str, *, headers: Dict[str, str]) -> httpx.Response:  # type: ignore[override]
-            data = {
-                "id": 1,
+        async def get_activity(self, activity_id: int) -> Dict[str, Any]:
+            return {
+                "id": activity_id,
                 "name": "Ride",
                 "splits_metric": [
                     {"average_heartrate": 100, "moving_time": 60},
@@ -489,7 +495,6 @@ async def test_process_activity_uses_laps_and_computes_metrics() -> None:
                 "moving_time": 180,
                 "description": "desc",
             }
-            return httpx.Response(200, json=data, request=httpx.Request("GET", url))
 
     class FakeNotionClient(NotionAPI):
         def __init__(self) -> None:
@@ -516,20 +521,12 @@ async def test_process_activity_uses_laps_and_computes_metrics() -> None:
         async def update(self, page_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:  # pragma: no cover - unused
             return {"id": page_id}
 
-    redis = DummyRedis()
-    redis.set("strava_access_token", "token")
     notion = FakeNotionClient()
-    http_client = FakeStravaClient()
     repository = NotionWorkoutRepository(settings=test_settings, client=notion)
 
-    service = StravaActivityService(
-        http_client=http_client,
-        workout_repository=repository,
-        settings=test_settings,
-        redis=redis,
-    )
+    coordinator = StravaActivityCoordinator(FakeStravaClient(), repository)
 
-    await service.process_activity(1)
+    await coordinator.process_activity(1)
 
     assert notion.created is not None
     props = notion.created["properties"]
