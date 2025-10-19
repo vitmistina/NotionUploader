@@ -9,19 +9,21 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.models import MetricResults, StravaActivity
-from src.services.strava_activity import StravaActivityService
-from src.settings import Settings
 from src.notion.application.ports import WorkoutRepository
+from src.settings import Settings
+from src.strava import StravaActivityCoordinator
+from src.strava.domain.metrics import compute_activity_metrics
+from src.strava.infrastructure.client import StravaClient
 
 
 class DummyRedis:
     def __init__(self) -> None:
         self.store: Dict[str, str] = {}
 
-    def get(self, key: str) -> str | None:
+    def get(self, key: str) -> Optional[str]:
         return self.store.get(key)
 
-    def set(self, key: str, value: str) -> None:
+    def set(self, key: str, value: str, ex: int | None = None) -> None:  # pragma: no cover - simple store
         self.store[key] = value
 
 
@@ -74,31 +76,28 @@ settings = Settings(
 )
 
 
-
 @pytest.mark.asyncio
-async def test_fetch_activity_returns_model() -> None:
+async def test_strava_client_fetches_activity() -> None:
     redis = DummyRedis()
     redis.set("strava_access_token", "abc")
 
     async def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers["Authorization"] == "Bearer abc"
         return httpx.Response(
-            200, json={"id": 1, "name": "Run", "splits_metric": [], "laps": []}
+            200,
+            json={"id": 1, "name": "Run", "splits_metric": [], "laps": []},
         )
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as client:
-        service = StravaActivityService(client, DummyWorkoutRepository(), settings, redis)
-        activity = await service.fetch_activity(1)
-    assert isinstance(activity, StravaActivity)
-    assert activity.id == 1
-    assert activity.name == "Run"
-    assert activity.splits_metric == []
+        strava_client = StravaClient(client, redis, settings)
+        payload = await strava_client.get_activity(1)
+
+    assert payload["id"] == 1
+    assert payload["name"] == "Run"
 
 
-@pytest.mark.asyncio
-async def test_compute_metrics() -> None:
-    service = StravaActivityService(None, DummyWorkoutRepository(), settings, DummyRedis())
+def test_compute_activity_metrics() -> None:
     activity = StravaActivity(
         id=1,
         name="Ride",
@@ -112,15 +111,15 @@ async def test_compute_metrics() -> None:
         moving_time=180,
     )
     athlete = {"max_hr": 190, "ftp": 200}
-    metrics = service.compute_metrics(activity, athlete)
+
+    metrics = compute_activity_metrics(activity, athlete)
+
     assert metrics.vo2 == pytest.approx(3.0)
     assert metrics.intensity_factor == pytest.approx(1.05)
     assert metrics.tss == pytest.approx(5.5125)
 
 
-@pytest.mark.asyncio
-async def test_compute_metrics_without_heart_rate() -> None:
-    service = StravaActivityService(None, DummyWorkoutRepository(), settings, DummyRedis())
+def test_compute_activity_metrics_without_heart_rate() -> None:
     activity = StravaActivity(
         id=2,
         name="Ride",
@@ -140,7 +139,7 @@ async def test_compute_metrics_without_heart_rate() -> None:
     )
     athlete = {"max_hr": 190, "ftp": 200}
 
-    metrics = service.compute_metrics(activity, athlete)
+    metrics = compute_activity_metrics(activity, athlete)
 
     assert metrics.hr_drift == 0.0
     assert metrics.vo2 == 0.0
@@ -149,13 +148,18 @@ async def test_compute_metrics_without_heart_rate() -> None:
 
 
 @pytest.mark.asyncio
-async def test_persist_to_notion() -> None:
+async def test_coordinator_persist_to_notion() -> None:
     repository = DummyWorkoutRepository()
-    service = StravaActivityService(None, repository, settings, DummyRedis())
+
+    class DummyClient:
+        async def get_activity(self, activity_id: int) -> Dict[str, Any]:  # pragma: no cover - unused
+            return {}
+
+    coordinator = StravaActivityCoordinator(DummyClient(), repository)  # type: ignore[arg-type]
     activity = StravaActivity(id=1, name="Ride", description="ride")
     metrics = MetricResults(hr_drift=1.0, vo2=2.0, tss=3.0, intensity_factor=0.5)
 
-    await service.persist_to_notion(activity, metrics)
+    await coordinator.persist_activity(activity, metrics)
 
     assert repository.saved_payload is not None
     assert repository.saved_payload["hr_drift"] == 1.0
