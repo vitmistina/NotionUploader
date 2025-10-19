@@ -18,7 +18,14 @@ from src import main
 from src.services.redis import get_redis
 from src.services.notion import NotionClient
 from src.models.body import BodyMeasurement
+from src.models.workout import WorkoutLog
 from src.settings import Settings, get_settings
+from src.notion.application.ports import NutritionRepository, WorkoutRepository
+from src.notion.infrastructure.nutrition_repository import get_nutrition_repository
+from src.notion.infrastructure.workout_repository import (
+    NotionWorkoutRepository,
+    get_workout_repository,
+)
 
 test_settings = Settings(
     api_key="test-key",
@@ -513,9 +520,13 @@ async def test_process_activity_uses_laps_and_computes_metrics() -> None:
     redis.set("strava_access_token", "token")
     notion = FakeNotionClient()
     http_client = FakeStravaClient()
+    repository = NotionWorkoutRepository(settings=test_settings, client=notion)
 
     service = StravaActivityService(
-        http_client=http_client, notion_client=notion, settings=test_settings, redis=redis
+        http_client=http_client,
+        workout_repository=repository,
+        settings=test_settings,
+        redis=redis,
     )
 
     await service.process_activity(1)
@@ -530,8 +541,6 @@ async def test_process_activity_uses_laps_and_computes_metrics() -> None:
 
 @pytest.mark.asyncio
 async def test_save_workout_to_notion_updates_existing(respx_mock: respx.MockRouter) -> None:
-    from src import workout_notion as wn
-
     detail = {"id": 123, "name": "Ride"}
     query_url = "https://api.notion.com/v1/databases/workout-db123/query"
     respx_mock.post(query_url).mock(
@@ -541,17 +550,14 @@ async def test_save_workout_to_notion_updates_existing(respx_mock: respx.MockRou
         return_value=httpx.Response(200, json={"id": "page123"})
     )
 
-    await wn.save_workout_to_notion(
-        detail, "", 0.0, 0.0, settings=test_settings, client=test_notion_client
-    )
+    repository = NotionWorkoutRepository(settings=test_settings, client=test_notion_client)
+    await repository.save_workout(detail, "", 0.0, 0.0)
 
     assert patch_route.called
 
 
 @pytest.mark.asyncio
 async def test_save_workout_to_notion_inserts_when_missing(respx_mock: respx.MockRouter) -> None:
-    from src import workout_notion as wn
-
     detail = {"id": 321, "name": "Ride"}
     query_url = "https://api.notion.com/v1/databases/workout-db123/query"
     respx_mock.post(query_url).mock(return_value=httpx.Response(200, json={"results": []}))
@@ -559,9 +565,8 @@ async def test_save_workout_to_notion_inserts_when_missing(respx_mock: respx.Moc
         return_value=httpx.Response(200, json={"id": "page321"})
     )
 
-    await wn.save_workout_to_notion(
-        detail, "", 0.0, 0.0, settings=test_settings, client=test_notion_client
-    )
+    repository = NotionWorkoutRepository(settings=test_settings, client=test_notion_client)
+    await repository.save_workout(detail, "", 0.0, 0.0)
 
     assert post_route.called
 
@@ -621,7 +626,7 @@ async def test_body_measurements_endpoint(monkeypatch: pytest.MonkeyPatch) -> No
 @pytest.mark.asyncio
 async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_nutrition(
-        start: str, end: str, settings: Settings, client: NotionClient
+        start: str, end: str, repository: NutritionRepository
     ) -> List[Dict[str, Any]]:
         return [
             {
@@ -674,38 +679,64 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
             ),
         ]
 
-    async def fake_workouts(
-        days: int, settings: Settings, client: NotionClient
-    ) -> List[Dict[str, Any]]:
-        return [
-            {
-                "name": "Run",
-                "date": "2023-01-01",
-                "duration_s": 3600,
-                "distance_m": 10000.0,
-                "elevation_m": 100.0,
-                "type": "Run",
-            }
-        ]
+    class FakeNutritionRepo(NutritionRepository):
+        async def create_entry(self, entry: Any) -> None:  # pragma: no cover - unused in test
+            return None
 
-    async def fake_athlete(
-        settings: Settings, client: NotionClient
-    ) -> Dict[str, Any]:
-        return {"ftp": 250.0, "weight": 70.0, "max_hr": 190.0}
+        async def list_entries_on_date(self, date: str) -> List[Any]:  # pragma: no cover - unused in test
+            return []
+
+        async def list_entries_in_range(
+            self, start_date: str, end_date: str
+        ) -> List[Any]:  # pragma: no cover - unused in test
+            return []
+
+    class FakeWorkoutRepo(WorkoutRepository):
+        async def list_recent_workouts(self, days: int) -> List[WorkoutLog]:
+            return [
+                WorkoutLog(
+                    name="Run",
+                    date="2023-01-01",
+                    duration_s=3600,
+                    distance_m=10000.0,
+                    elevation_m=100.0,
+                    type="Run",
+                )
+            ]
+
+        async def fetch_latest_athlete_profile(self) -> Dict[str, Any]:
+            return {"ftp": 250.0, "weight": 70.0, "max_hr": 190.0}
+
+        async def save_workout(
+            self,
+            detail: Dict[str, Any],
+            attachment: str,
+            hr_drift: float,
+            vo2max: float,
+            *,
+            tss: Optional[float] = None,
+            intensity_factor: Optional[float] = None,
+        ) -> None:  # pragma: no cover - unused in test
+            return None
 
     from src.routes import advice as advice_routes
 
     monkeypatch.setattr(advice_routes, "get_daily_nutrition_summaries", fake_nutrition)
     monkeypatch.setattr(advice_routes, "get_measurements", fake_metrics)
-    monkeypatch.setattr(advice_routes, "fetch_workouts_from_notion", fake_workouts)
-    monkeypatch.setattr(advice_routes, "fetch_latest_athlete_profile", fake_athlete)
 
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response: httpx.Response = await client.get(
-            "/v2/complex-advice?days=1&timezone=UTC",
-            headers={"x-api-key": "test-key"},
-        )
+    app.dependency_overrides[get_nutrition_repository] = lambda: FakeNutritionRepo()
+    app.dependency_overrides[get_workout_repository] = lambda: FakeWorkoutRepo()
+
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response: httpx.Response = await client.get(
+                "/v2/complex-advice?days=1&timezone=UTC",
+                headers={"x-api-key": "test-key"},
+            )
+    finally:
+        app.dependency_overrides.pop(get_nutrition_repository, None)
+        app.dependency_overrides.pop(get_workout_repository, None)
 
     assert response.status_code == 200
     data: Dict[str, Any] = response.json()

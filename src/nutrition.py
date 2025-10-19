@@ -8,17 +8,15 @@ from .models.nutrition import (
     DailyNutritionSummaryWithEntries,
     NutritionEntry,
 )
-from .notion import entries_in_range
-from .services.interfaces import NotionAPI
-from .settings import Settings
+from .notion.application.ports import NutritionRepository
 
 
 async def get_daily_nutrition_summaries(
-    start_date: str, end_date: str, settings: Settings, client: NotionAPI
+    start_date: str, end_date: str, repository: NutritionRepository
 ) -> List[DailyNutritionSummaryWithEntries]:
     """Retrieve nutrition entries for a date range and aggregate by day."""
-    entries: List[NutritionEntry] = await entries_in_range(
-        start_date, end_date, settings, client
+    entries: List[NutritionEntry] = await repository.list_entries_in_range(
+        start_date, end_date
     )
     grouped: Dict[str, List[NutritionEntry]] = defaultdict(list)
     for entry in entries:

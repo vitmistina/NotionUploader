@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 import httpx
 import pytest
@@ -9,9 +9,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.models import MetricResults, StravaActivity
-from src.services.interfaces import NotionAPI
 from src.services.strava_activity import StravaActivityService
 from src.settings import Settings
+from src.notion.application.ports import WorkoutRepository
 
 
 class DummyRedis:
@@ -25,19 +25,36 @@ class DummyRedis:
         self.store[key] = value
 
 
-class DummyNotion(NotionAPI):
+class DummyWorkoutRepository(WorkoutRepository):
     def __init__(self) -> None:
-        self.created: Dict[str, Any] | None = None
+        self.saved_payload: Dict[str, Any] | None = None
+        self.athlete_profile: Dict[str, Any] = {}
+        self.recent_workouts: List[Dict[str, Any]] = []
 
-    async def query(self, database_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        return {"results": []}
+    async def list_recent_workouts(self, days: int) -> List[Any]:  # pragma: no cover - unused in tests
+        return self.recent_workouts
 
-    async def create(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        self.created = payload
-        return {"id": "page"}
+    async def fetch_latest_athlete_profile(self) -> Dict[str, Any]:
+        return self.athlete_profile
 
-    async def update(self, page_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:  # pragma: no cover - unused
-        return {"id": page_id}
+    async def save_workout(
+        self,
+        detail: Dict[str, Any],
+        attachment: str,
+        hr_drift: float,
+        vo2max: float,
+        *,
+        tss: Optional[float] = None,
+        intensity_factor: Optional[float] = None,
+    ) -> None:
+        self.saved_payload = {
+            "detail": detail,
+            "attachment": attachment,
+            "hr_drift": hr_drift,
+            "vo2max": vo2max,
+            "tss": tss,
+            "intensity_factor": intensity_factor,
+        }
 
 
 settings = Settings(
@@ -56,7 +73,6 @@ settings = Settings(
     strava_client_secret="strava-client-secret",
 )
 
-notion_client = DummyNotion()
 
 
 @pytest.mark.asyncio
@@ -72,7 +88,7 @@ async def test_fetch_activity_returns_model() -> None:
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as client:
-        service = StravaActivityService(client, notion_client, settings, redis)
+        service = StravaActivityService(client, DummyWorkoutRepository(), settings, redis)
         activity = await service.fetch_activity(1)
     assert isinstance(activity, StravaActivity)
     assert activity.id == 1
@@ -82,7 +98,7 @@ async def test_fetch_activity_returns_model() -> None:
 
 @pytest.mark.asyncio
 async def test_compute_metrics() -> None:
-    service = StravaActivityService(None, notion_client, settings, DummyRedis())
+    service = StravaActivityService(None, DummyWorkoutRepository(), settings, DummyRedis())
     activity = StravaActivity(
         id=1,
         name="Ride",
@@ -104,7 +120,7 @@ async def test_compute_metrics() -> None:
 
 @pytest.mark.asyncio
 async def test_compute_metrics_without_heart_rate() -> None:
-    service = StravaActivityService(None, notion_client, settings, DummyRedis())
+    service = StravaActivityService(None, DummyWorkoutRepository(), settings, DummyRedis())
     activity = StravaActivity(
         id=2,
         name="Ride",
@@ -134,17 +150,18 @@ async def test_compute_metrics_without_heart_rate() -> None:
 
 @pytest.mark.asyncio
 async def test_persist_to_notion() -> None:
-    notion = DummyNotion()
-    service = StravaActivityService(None, notion, settings, DummyRedis())
+    repository = DummyWorkoutRepository()
+    service = StravaActivityService(None, repository, settings, DummyRedis())
     activity = StravaActivity(id=1, name="Ride", description="ride")
     metrics = MetricResults(hr_drift=1.0, vo2=2.0, tss=3.0, intensity_factor=0.5)
 
     await service.persist_to_notion(activity, metrics)
 
-    assert notion.created is not None
-    props = notion.created["properties"]
-    assert props["Notes"]["rich_text"][0]["text"]["content"] == "ride"
-    assert props["HR drift [%]"]["number"] == 1.0
-    assert props["VO2 MAX [min]"]["number"] == 2.0
-    assert props["TSS"]["number"] == 3.0
-    assert props["IF"]["number"] == 0.5
+    assert repository.saved_payload is not None
+    assert repository.saved_payload["hr_drift"] == 1.0
+    assert repository.saved_payload["vo2max"] == 2.0
+    assert repository.saved_payload["tss"] == 3.0
+    assert repository.saved_payload["intensity_factor"] == 0.5
+    detail = repository.saved_payload["detail"]
+    assert detail["description"] == "ride"
+    assert isinstance(repository.saved_payload["attachment"], str)

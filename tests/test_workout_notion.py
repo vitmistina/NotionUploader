@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.settings import Settings
 from src.services.interfaces import NotionAPI
-from src.workout_notion import fetch_workouts_from_notion
+from src.notion.infrastructure.workout_repository import NotionWorkoutRepository
 
 
 class DummyNotion(NotionAPI):
@@ -85,7 +85,8 @@ async def test_fetch_workouts_includes_minimal_entries() -> None:
         ]
     )
 
-    workouts = await fetch_workouts_from_notion(7, settings, notion)
+    repository = NotionWorkoutRepository(settings=settings, client=notion)
+    workouts = await repository.list_recent_workouts(7)
 
     names = [w.name for w in workouts]
     assert "Outdoor Run" in names

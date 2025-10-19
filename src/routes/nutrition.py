@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
-from fastapi import APIRouter, Path, Query, Depends
+from fastapi import APIRouter, Depends, Path, Query
 
 from ..models.nutrition import (
     DailyNutritionSummary,
@@ -13,11 +13,9 @@ from ..models.nutrition import (
     NutritionPeriodResponse,
 )
 from ..models.time import get_local_time
-from ..notion import entries_on_date, submit_to_notion
+from ..notion.application.ports import NutritionRepository
+from ..notion.infrastructure.nutrition_repository import get_nutrition_repository
 from ..nutrition import build_daily_summary, get_daily_nutrition_summaries
-from ..services.interfaces import NotionAPI
-from ..services.notion import get_notion_client
-from ..settings import Settings, get_settings
 from .utils import timezone_query
 
 router: APIRouter = APIRouter()
@@ -26,10 +24,10 @@ router: APIRouter = APIRouter()
 @router.post("/nutrition-entries", status_code=201, response_model=StatusResponse)
 async def create_nutrition_entry(
     entry: NutritionEntry,
-    settings: Settings = Depends(get_settings),
-    client: NotionAPI = Depends(get_notion_client),
+    repository: NutritionRepository = Depends(get_nutrition_repository),
 ) -> StatusResponse:
-    return await submit_to_notion(entry, settings, client)
+    await repository.create_entry(entry)
+    return StatusResponse(status="success")
 
 
 @router.get(
@@ -39,10 +37,9 @@ async def create_nutrition_entry(
 async def list_daily_nutrition_entries(
     date: str = Path(..., description="Date to fetch in YYYY-MM-DD format."),
     timezone: str = timezone_query,
-    settings: Settings = Depends(get_settings),
-    client: NotionAPI = Depends(get_notion_client),
+    repository: NutritionRepository = Depends(get_nutrition_repository),
 ) -> NutritionEntriesResponse:
-    entries: List[NutritionEntry] = await entries_on_date(date, settings, client)
+    entries: List[NutritionEntry] = await repository.list_entries_on_date(date)
     summary: DailyNutritionSummary = build_daily_summary(date, entries)
     local_time, part = get_local_time(timezone)
     return NutritionEntriesResponse(
@@ -62,11 +59,10 @@ async def list_nutrition_entries_by_period(
         ..., description="End date (inclusive) in YYYY-MM-DD format.",
     ),
     timezone: str = timezone_query,
-    settings: Settings = Depends(get_settings),
-    client: NotionAPI = Depends(get_notion_client),
+    repository: NutritionRepository = Depends(get_nutrition_repository),
 ) -> NutritionPeriodResponse:
     summaries: List[DailyNutritionSummaryWithEntries] = await get_daily_nutrition_summaries(
-        start_date, end_date, settings, client
+        start_date, end_date, repository
     )
     local_time, part = get_local_time(timezone)
     return NutritionPeriodResponse(

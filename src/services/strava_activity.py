@@ -8,26 +8,25 @@ from typing import Any, AsyncIterator
 import httpx
 from fastapi import Depends, HTTPException
 
-from .redis import RedisClient, get_redis
-from .interfaces import NotionAPI
-from .notion import get_notion_client
 from ..settings import Settings, get_settings
 from ..strava import refresh_access_token
 from ..metrics import hr_drift_from_splits, vo2max_minutes
-from ..workout_notion import fetch_latest_athlete_profile, save_workout_to_notion
 from ..models import StravaActivity, MetricResults
+from ..notion.application.ports import WorkoutRepository
+from ..notion.infrastructure.workout_repository import get_workout_repository
+from .redis import RedisClient, get_redis
 
 
 class StravaActivityService:
     def __init__(
         self,
         http_client: httpx.AsyncClient,
-        notion_client: NotionAPI,
+        workout_repository: WorkoutRepository,
         settings: Settings,
         redis: RedisClient,
     ) -> None:
         self.http_client = http_client
-        self.notion = notion_client
+        self.workouts = workout_repository
         self.settings = settings
         self.redis = redis
 
@@ -53,7 +52,7 @@ class StravaActivityService:
         return StravaActivity.model_validate(resp.json())
 
     async def fetch_athlete(self) -> dict[str, Any]:
-        return await fetch_latest_athlete_profile(self.settings, self.notion)
+        return await self.workouts.fetch_latest_athlete_profile()
 
     def compute_metrics(
         self, activity: StravaActivity, athlete: dict[str, Any]
@@ -93,15 +92,13 @@ class StravaActivityService:
         minified = json.dumps(detail, separators=(",", ":"))
         compressed = gzip.compress(minified.encode("utf-8"))
         attachment = base64.b64encode(compressed).decode("utf-8")
-        await save_workout_to_notion(
+        await self.workouts.save_workout(
             detail,
             attachment,
             metrics.hr_drift,
             metrics.vo2,
             tss=metrics.tss,
             intensity_factor=metrics.intensity_factor,
-            settings=self.settings,
-            client=self.notion,
         )
 
     async def process_activity(self, activity_id: int) -> None:
@@ -114,7 +111,7 @@ class StravaActivityService:
 async def get_strava_activity_service(
     redis: RedisClient = Depends(get_redis),
     settings: Settings = Depends(get_settings),
-    notion_client: NotionAPI = Depends(get_notion_client),
+    workout_repository: WorkoutRepository = Depends(get_workout_repository),
 ) -> AsyncIterator[StravaActivityService]:
     async with httpx.AsyncClient() as http_client:
-        yield StravaActivityService(http_client, notion_client, settings, redis)
+        yield StravaActivityService(http_client, workout_repository, settings, redis)

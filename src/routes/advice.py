@@ -9,16 +9,13 @@ from ..models.advice import ComplexAdvice
 from ..models.body import BodyMetricTrends
 from ..models.time import get_local_time
 from ..nutrition import get_daily_nutrition_summaries
-from ..services.interfaces import NotionAPI
-from ..services.notion import get_notion_client
 from ..services.redis import RedisClient, get_redis
 from ..settings import Settings, get_settings
 from ..withings import get_measurements
 from ..metrics import linear_regression
-from ..workout_notion import (
-    fetch_latest_athlete_profile,
-    fetch_workouts_from_notion,
-)
+from ..notion.application.ports import NutritionRepository, WorkoutRepository
+from ..notion.infrastructure.nutrition_repository import get_nutrition_repository
+from ..notion.infrastructure.workout_repository import get_workout_repository
 from .utils import timezone_query
 
 router: APIRouter = APIRouter()
@@ -30,16 +27,17 @@ async def get_complex_advice(
     timezone: str = timezone_query,
     redis: RedisClient = Depends(get_redis),
     settings: Settings = Depends(get_settings),
-    client: NotionAPI = Depends(get_notion_client),
+    nutrition_repository: NutritionRepository = Depends(get_nutrition_repository),
+    workout_repository: WorkoutRepository = Depends(get_workout_repository),
 ) -> ComplexAdvice:
     end: date = date.today()
     start: date = end - timedelta(days=days - 1)
     nutrition_coro = get_daily_nutrition_summaries(
-        start.isoformat(), end.isoformat(), settings, client
+        start.isoformat(), end.isoformat(), nutrition_repository
     )
     metrics_coro = get_measurements(days, redis, settings)
-    workouts_coro = fetch_workouts_from_notion(days, settings, client)
-    athlete_coro = fetch_latest_athlete_profile(settings, client)
+    workouts_coro = workout_repository.list_recent_workouts(days)
+    athlete_coro = workout_repository.fetch_latest_athlete_profile()
     nutrition, metrics, workouts, athlete_metrics = await asyncio.gather(
         nutrition_coro, metrics_coro, workouts_coro, athlete_coro
     )
