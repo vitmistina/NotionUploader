@@ -20,3 +20,4 @@
   ruff check src tests
   ```
 - As a recurring chore, reread the `README.md` after each change and update any sections impacted by your work before merging.
+- As a recurring chore, clean up `todo.md` and `./examples/` folder after the implementation is done
