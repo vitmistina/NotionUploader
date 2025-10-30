@@ -1,5 +1,6 @@
 # Developer Instructions
 
+- `todo.md` usually can contain desired outcomes and improvements, read the file and implement
 - After modifying API models or routes, regenerate the OpenAPI schema:
   ```bash
   python generate_openapi.py
