@@ -50,7 +50,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StatusResponse"
+                  "$ref": "#/components/schemas/OperationStatus"
                 }
               }
             }
@@ -115,7 +115,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/NutritionEntriesResponse"
+                  "$ref": "#/components/schemas/NutritionSummaryResponse"
                 }
               }
             }
@@ -186,7 +186,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/NutritionPeriodResponse"
+                  "$ref": "#/components/schemas/NutritionSummaryResponse"
                 }
               }
             }
@@ -309,10 +309,10 @@
         "is_consequential": false
       }
     },
-    "/v2/workout-logs/{page_id}/fill": {
+    "/v2/workout-logs/{page_id}/sync": {
       "post": {
-        "summary": "Fill Workout Metrics",
-        "operationId": "fill_workout_metrics_v2_workout_logs__page_id__fill_post",
+        "summary": "Sync Workout Metrics",
+        "operationId": "sync_workout_metrics_v2_workout_logs__page_id__sync_post",
         "security": [
           {
             "ApiKeyAuth": []
@@ -335,7 +335,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/WorkoutLog"
+                  "$ref": "#/components/schemas/OperationStatus"
                 }
               }
             }
@@ -375,7 +375,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ManualWorkoutResponse"
+                  "$ref": "#/components/schemas/OperationStatus"
                 }
               }
             }
@@ -400,10 +400,10 @@
         "is_consequential": false
       }
     },
-    "/v2/complex-advice": {
+    "/v2/summary-advice": {
       "get": {
-        "summary": "Get Complex Advice",
-        "operationId": "get_complex_advice_v2_complex_advice_get",
+        "summary": "Get Summary Advice",
+        "operationId": "get_summary_advice_v2_summary_advice_get",
         "security": [
           {
             "ApiKeyAuth": []
@@ -441,7 +441,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ComplexAdvice"
+                  "$ref": "#/components/schemas/SummaryAdvice"
                 }
               }
             }
@@ -708,99 +708,6 @@
         "title": "BodyMetricTrends",
         "description": "Linear regression trends for core body metrics."
       },
-      "ComplexAdvice": {
-        "properties": {
-          "local_time": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Local Time",
-            "description": "Current local time with timezone"
-          },
-          "part_of_day": {
-            "type": "string",
-            "enum": [
-              "night",
-              "morning",
-              "afternoon",
-              "evening"
-            ],
-            "title": "Part Of Day"
-          },
-          "nutrition": {
-            "items": {
-              "$ref": "#/components/schemas/DailyNutritionSummaryWithEntries"
-            },
-            "type": "array",
-            "title": "Nutrition"
-          },
-          "metrics": {
-            "items": {
-              "$ref": "#/components/schemas/BodyMeasurement"
-            },
-            "type": "array",
-            "title": "Metrics"
-          },
-          "metric_trends": {
-            "$ref": "#/components/schemas/BodyMetricTrends"
-          },
-          "workouts": {
-            "items": {
-              "$ref": "#/components/schemas/WorkoutLog"
-            },
-            "type": "array",
-            "title": "Workouts"
-          },
-          "athlete_metrics": {
-            "$ref": "#/components/schemas/AthleteMetrics"
-          }
-        },
-        "type": "object",
-        "required": [
-          "local_time",
-          "part_of_day",
-          "nutrition",
-          "metrics",
-          "metric_trends",
-          "workouts",
-          "athlete_metrics"
-        ],
-        "title": "ComplexAdvice",
-        "description": "Combined nutrition, body metrics, workout data, and athlete metrics."
-      },
-      "DailyNutritionSummary": {
-        "properties": {
-          "date": {
-            "type": "string",
-            "title": "Date"
-          },
-          "daily_calories_sum": {
-            "type": "integer",
-            "title": "Daily Calories Sum"
-          },
-          "daily_protein_g_sum": {
-            "type": "number",
-            "title": "Daily Protein G Sum"
-          },
-          "daily_carbs_g_sum": {
-            "type": "number",
-            "title": "Daily Carbs G Sum"
-          },
-          "daily_fat_g_sum": {
-            "type": "number",
-            "title": "Daily Fat G Sum"
-          }
-        },
-        "type": "object",
-        "required": [
-          "date",
-          "daily_calories_sum",
-          "daily_protein_g_sum",
-          "daily_carbs_g_sum",
-          "daily_fat_g_sum"
-        ],
-        "title": "DailyNutritionSummary",
-        "description": "Aggregated nutrition information for a single day."
-      },
       "DailyNutritionSummaryWithEntries": {
         "properties": {
           "date": {
@@ -879,66 +786,6 @@
         ],
         "title": "LinearRegressionResult",
         "description": "Slope, intercept, and coefficient of determination for a metric."
-      },
-      "ManualWorkoutResponse": {
-        "properties": {
-          "id": {
-            "type": "integer",
-            "title": "Id"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "start_time": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Start Time"
-          },
-          "duration_s": {
-            "type": "integer",
-            "title": "Duration S"
-          },
-          "type": {
-            "type": "string",
-            "title": "Type",
-            "description": "Stored workout type.",
-            "default": "Gym"
-          },
-          "intensity_factor": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Intensity Factor",
-            "description": "Estimated or provided intensity factor."
-          },
-          "tss": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tss",
-            "description": "Estimated or provided Training Stress Score."
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "start_time",
-          "duration_s"
-        ],
-        "title": "ManualWorkoutResponse",
-        "description": "API response returned after storing a manual workout submission."
       },
       "ManualWorkoutSubmission": {
         "properties": {
@@ -1139,45 +986,6 @@
         "title": "ManualWorkoutSubmission",
         "description": "Payload describing a manually logged workout extracted by a GPT agent."
       },
-      "NutritionEntriesResponse": {
-        "properties": {
-          "local_time": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Local Time",
-            "description": "Current local time with timezone"
-          },
-          "part_of_day": {
-            "type": "string",
-            "enum": [
-              "night",
-              "morning",
-              "afternoon",
-              "evening"
-            ],
-            "title": "Part Of Day"
-          },
-          "entries": {
-            "items": {
-              "$ref": "#/components/schemas/NutritionEntry"
-            },
-            "type": "array",
-            "title": "Entries"
-          },
-          "summary": {
-            "$ref": "#/components/schemas/DailyNutritionSummary"
-          }
-        },
-        "type": "object",
-        "required": [
-          "local_time",
-          "part_of_day",
-          "entries",
-          "summary"
-        ],
-        "title": "NutritionEntriesResponse",
-        "description": "Response wrapper for a list of nutrition entries with timing context."
-      },
       "NutritionEntry": {
         "properties": {
           "food_item": {
@@ -1236,7 +1044,69 @@
         ],
         "title": "NutritionEntry"
       },
-      "NutritionPeriodResponse": {
+      "NutritionSummaryResponse": {
+        "properties": {
+          "local_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Local Time",
+            "description": "Current local time with timezone"
+          },
+          "part_of_day": {
+            "type": "string",
+            "enum": [
+              "night",
+              "morning",
+              "afternoon",
+              "evening"
+            ],
+            "title": "Part Of Day"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/DailyNutritionSummaryWithEntries"
+            },
+            "type": "array",
+            "title": "Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "local_time",
+          "part_of_day",
+          "days"
+        ],
+        "title": "NutritionSummaryResponse",
+        "description": "Time contextualized response containing one or more daily summaries."
+      },
+      "OperationStatus": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Short status indicator for the operation outcome."
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id",
+            "description": "Identifier of the resource affected by the operation, when relevant."
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "OperationStatus",
+        "description": "Normalized status payload returned by mutation endpoints."
+      },
+      "SummaryAdvice": {
         "properties": {
           "local_time": {
             "type": "string",
@@ -1260,30 +1130,40 @@
             },
             "type": "array",
             "title": "Nutrition"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/BodyMeasurement"
+            },
+            "type": "array",
+            "title": "Metrics"
+          },
+          "metric_trends": {
+            "$ref": "#/components/schemas/BodyMetricTrends"
+          },
+          "workouts": {
+            "items": {
+              "$ref": "#/components/schemas/WorkoutLog"
+            },
+            "type": "array",
+            "title": "Workouts"
+          },
+          "athlete_metrics": {
+            "$ref": "#/components/schemas/AthleteMetrics"
           }
         },
         "type": "object",
         "required": [
           "local_time",
           "part_of_day",
-          "nutrition"
+          "nutrition",
+          "metrics",
+          "metric_trends",
+          "workouts",
+          "athlete_metrics"
         ],
-        "title": "NutritionPeriodResponse",
-        "description": "Response wrapper for a range of daily nutrition summaries with timing context."
-      },
-      "StatusResponse": {
-        "properties": {
-          "status": {
-            "type": "string",
-            "title": "Status"
-          }
-        },
-        "type": "object",
-        "required": [
-          "status"
-        ],
-        "title": "StatusResponse",
-        "description": "Simple response model indicating operation status."
+        "title": "SummaryAdvice",
+        "description": "Combined nutrition, body metrics, workout data, and athlete metrics."
       },
       "ValidationError": {
         "properties": {

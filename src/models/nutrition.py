@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-from typing import Literal, List
-
-from .time import TimeContext
+from typing import List, Literal
 
 from pydantic import BaseModel, Field
+
+from .time import TimeContext
 
 
 class NutritionEntry(BaseModel):
     food_item: str
-    date: str  # Consider refining this to a date type later
+    date: str
     calories: int
     protein_g: float
     carbs_g: float
@@ -24,12 +24,6 @@ class NutritionEntry(BaseModel):
         "Post-workout",
     ]
     notes: str = Field(..., min_length=1)
-
-
-class StatusResponse(BaseModel):
-    """Simple response model indicating operation status."""
-
-    status: str
 
 
 class DailyNutritionSummary(BaseModel):
@@ -48,14 +42,7 @@ class DailyNutritionSummaryWithEntries(DailyNutritionSummary):
     entries: List[NutritionEntry]
 
 
-class NutritionEntriesResponse(TimeContext):
-    """Response wrapper for a list of nutrition entries with timing context."""
+class NutritionSummaryResponse(TimeContext):
+    """Time contextualized response containing one or more daily summaries."""
 
-    entries: List[NutritionEntry]
-    summary: DailyNutritionSummary
-
-
-class NutritionPeriodResponse(TimeContext):
-    """Response wrapper for a range of daily nutrition summaries with timing context."""
-
-    nutrition: List[DailyNutritionSummaryWithEntries]
+    days: List[DailyNutritionSummaryWithEntries]

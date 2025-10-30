@@ -5,8 +5,8 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..metrics import estimate_if_tss_from_hr
+from ..models.responses import OperationStatus
 from ..models.workout import (
-    ManualWorkoutResponse,
     ManualWorkoutSubmission,
     WorkoutLog,
 )
@@ -24,26 +24,26 @@ async def list_logged_workouts(
     return await repository.list_recent_workouts(days)
 
 
-@router.post("/workout-logs/{page_id}/fill", response_model=WorkoutLog)
-async def fill_workout_metrics(
+@router.post("/workout-logs/{page_id}/sync", response_model=OperationStatus)
+async def sync_workout_metrics(
     page_id: str,
     repository: WorkoutRepository = Depends(get_workout_repository),
-) -> WorkoutLog:
+) -> OperationStatus:
     workout = await repository.fill_missing_metrics(page_id)
     if workout is None:
-        raise HTTPException(status_code=404, detail="Workout not found")
-    return workout
+        raise HTTPException(status_code=404, detail={"error": "Workout not found"})
+    return OperationStatus(status="updated")
 
 
 @router.post(
     "/workout-logs/manual",
-    response_model=ManualWorkoutResponse,
+    response_model=OperationStatus,
     status_code=201,
 )
 async def create_manual_workout(
     submission: ManualWorkoutSubmission,
     repository: WorkoutRepository = Depends(get_workout_repository),
-) -> ManualWorkoutResponse:
+) -> OperationStatus:
     detail = submission.to_notion_detail()
 
     intensity_factor = submission.intensity_factor
@@ -85,13 +85,4 @@ async def create_manual_workout(
         intensity_factor=intensity_factor,
     )
 
-    return ManualWorkoutResponse(
-        id=detail["id"],
-        name=detail["name"],
-        start_time=submission.start_time,
-        duration_s=detail["elapsed_time"],
-        intensity_factor=intensity_factor,
-        tss=tss,
-    )
-
-
+    return OperationStatus(status="ok", id=detail["id"])

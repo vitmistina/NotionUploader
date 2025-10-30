@@ -114,7 +114,7 @@ async def test_log_nutrition_success(respx_mock: respx.MockRouter) -> None:
             headers={"x-api-key": "test-key"},
         )
     assert response.status_code == 201
-    assert response.json() == {"status": "success"}
+    assert response.json() == {"status": "ok"}
     assert notion_route.called
     sent_json: Dict[str, Any] = json.loads(notion_route.calls[0].request.content)
     assert sent_json["parent"]["database_id"] == "db123"
@@ -181,16 +181,17 @@ async def test_get_foods_by_date(respx_mock: respx.MockRouter) -> None:
     assert "local_time" in data
     assert datetime.fromisoformat(data["local_time"]).tzinfo is not None
     assert "part_of_day" in data
-    entries: List[Dict[str, Any]] = data["entries"]
+    days: List[Dict[str, Any]] = data["days"]
+    assert len(days) == 1
+    day = days[0]
+    entries: List[Dict[str, Any]] = day["entries"]
     assert len(entries) == 1
     assert entries[0]["food_item"] == "Apple"
-    summary: Dict[str, Any] = data["summary"]
-    assert summary["date"] == "2023-01-01"
-    assert summary["daily_calories_sum"] == 95
-    assert summary["daily_protein_g_sum"] == 0.5
-    assert summary["daily_carbs_g_sum"] == 25
-    assert summary["daily_fat_g_sum"] == 0.3
-    assert "entries" not in summary
+    assert day["date"] == "2023-01-01"
+    assert day["daily_calories_sum"] == 95
+    assert day["daily_protein_g_sum"] == 0.5
+    assert day["daily_carbs_g_sum"] == 25
+    assert day["daily_fat_g_sum"] == 0.3
 
 
 @pytest.mark.asyncio
@@ -256,7 +257,7 @@ async def test_get_foods_range(respx_mock: respx.MockRouter) -> None:
     assert "local_time" in data
     assert datetime.fromisoformat(data["local_time"]).tzinfo is not None
     assert "part_of_day" in data
-    days: List[Dict[str, Any]] = data["nutrition"]
+    days: List[Dict[str, Any]] = data["days"]
     assert len(days) == 2
     day1: Dict[str, Any] = days[0]
     assert day1["date"] == "2023-01-01"
@@ -538,14 +539,11 @@ async def test_fill_workout_metrics(respx_mock: respx.MockRouter) -> None:
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         response = await client.post(
-            f"/v2/workout-logs/{workout_id}/fill", headers={"x-api-key": "test-key"}
+            f"/v2/workout-logs/{workout_id}/sync", headers={"x-api-key": "test-key"}
         )
 
     assert response.status_code == 200
-    body = response.json()
-    assert body["type"] == "Gym"
-    assert body["tss"] is not None
-    assert body["intensity_factor"] is not None
+    assert response.json() == {"status": "updated"}
 
 
 @pytest.mark.asyncio
@@ -601,17 +599,16 @@ async def test_manual_workout_submission() -> None:
 
     assert response.status_code == 201
     body = response.json()
-    assert body["type"] == "Gym"
-    assert body["intensity_factor"] is not None
-    assert body["tss"] is not None
+    assert body["status"] == "ok"
+    assert body["id"] == saved["detail"]["id"]
 
     assert saved["detail"]["type"] == "Gym"
     assert saved["detail"]["elapsed_time"] == 3600
     assert saved["detail"]["average_heartrate"] == 142
     assert saved["hr_drift"] == 0.0
     assert saved["vo2max"] == 0.0
-    assert saved["intensity_factor"] == body["intensity_factor"]
-    assert saved["tss"] == body["tss"]
+    assert saved["intensity_factor"] is not None
+    assert saved["tss"] is not None
 
 @pytest.mark.asyncio
 async def test_manual_workout_missing_max_heartrate_rejected() -> None:
@@ -978,7 +975,7 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
             response: httpx.Response = await client.get(
-                "/v2/complex-advice?days=1&timezone=UTC",
+                "/v2/summary-advice?days=1&timezone=UTC",
                 headers={"x-api-key": "test-key"},
             )
     finally:

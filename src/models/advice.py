@@ -18,7 +18,7 @@ class AthleteMetrics(BaseModel):
     max_hr: float | None = None
 
 
-class ComplexAdvice(TimeContext):
+class SummaryAdvice(TimeContext):
     """Combined nutrition, body metrics, workout data, and athlete metrics."""
 
     nutrition: List[DailyNutritionSummaryWithEntries]
