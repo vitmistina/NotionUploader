@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 
 from pydantic import BaseModel, Field
@@ -96,3 +96,120 @@ class WorkoutLog(BaseModel):
     tss: Optional[float] = None
     intensity_factor: Optional[float] = None
     notes: Optional[str] = None
+
+
+class ManualWorkoutSubmission(BaseModel):
+    """Payload describing a manually logged workout extracted by a GPT agent."""
+
+    name: str = Field(..., description="Human-readable workout name or summary.")
+    start_time: datetime = Field(
+        ..., description="UTC timestamp when the workout began."
+    )
+    duration_minutes: float = Field(
+        ..., gt=0, description="Total session duration expressed in minutes."
+    )
+    average_heartrate: Optional[float] = Field(
+        None, description="Average heart rate recorded for the session."
+    )
+    max_heartrate: Optional[float] = Field(
+        None, description="Maximum heart rate recorded for the session."
+    )
+    distance_meters: Optional[float] = Field(
+        None, description="Optional distance covered in meters."
+    )
+    elevation_meters: Optional[float] = Field(
+        None, description="Optional elevation gain in meters."
+    )
+    calories: Optional[float] = Field(
+        None, description="Estimated calories expended during the session."
+    )
+    notes: Optional[str] = Field(
+        None, description="Free-form notes or description of the workout."
+    )
+    id: Optional[int] = Field(
+        None,
+        description="Optional numeric identifier used for deduplicating entries.",
+    )
+    average_cadence: Optional[float] = Field(
+        None, description="Optional average cadence data."
+    )
+    average_watts: Optional[float] = Field(
+        None, description="Optional average power in watts."
+    )
+    weighted_average_watts: Optional[float] = Field(
+        None, description="Optional weighted average power in watts."
+    )
+    kilojoules: Optional[float] = Field(
+        None, description="Optional total work in kilojoules."
+    )
+    tss: Optional[float] = Field(
+        None, description="Optional Training Stress Score if already calculated."
+    )
+    intensity_factor: Optional[float] = Field(
+        None, description="Optional intensity factor if already calculated."
+    )
+    hr_drift_percent: Optional[float] = Field(
+        None, description="Optional heart rate drift percentage estimate."
+    )
+    vo2max_minutes: Optional[float] = Field(
+        None, description="Optional minutes spent at/above VO₂ max intensity."
+    )
+
+    def _generate_identifier(self) -> int:
+        if self.id is not None:
+            return self.id
+        start = self.start_time
+        if start.tzinfo is None:
+            start = start.replace(tzinfo=timezone.utc)
+        return int(start.timestamp())
+
+    def duration_seconds(self) -> int:
+        """Return the workout duration expressed in seconds."""
+
+        return int(round(self.duration_minutes * 60))
+
+    def to_notion_detail(self) -> Dict[str, Any]:
+        """Convert the submission into the payload expected by Notion storage."""
+
+        duration_s = self.duration_seconds()
+        detail: Dict[str, Any] = {
+            "id": self._generate_identifier(),
+            "name": self.name,
+            "start_date": self.start_time.isoformat(),
+            "elapsed_time": duration_s,
+            "moving_time": duration_s,
+            "distance": self.distance_meters,
+            "total_elevation_gain": self.elevation_meters,
+            "type": "Gym",
+            "description": self.notes,
+            "average_heartrate": self.average_heartrate,
+            "max_heartrate": self.max_heartrate,
+            "average_cadence": self.average_cadence,
+            "average_watts": self.average_watts,
+            "weighted_average_watts": self.weighted_average_watts,
+            "kilojoules": self.kilojoules,
+            "calories": self.calories,
+        }
+
+        if detail["distance"] is None:
+            detail["distance"] = 0.0
+        if detail["total_elevation_gain"] is None:
+            detail["total_elevation_gain"] = 0.0
+
+        return detail
+
+
+class ManualWorkoutResponse(BaseModel):
+    """API response returned after storing a manual workout submission."""
+
+    id: int
+    name: str
+    start_time: datetime
+    duration_s: int
+    type: str = Field("Gym", description="Stored workout type.")
+    intensity_factor: Optional[float] = Field(
+        None, description="Estimated or provided intensity factor."
+    )
+    tss: Optional[float] = Field(
+        None, description="Estimated or provided Training Stress Score."
+    )

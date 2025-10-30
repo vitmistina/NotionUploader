@@ -549,6 +549,71 @@ async def test_fill_workout_metrics(respx_mock: respx.MockRouter) -> None:
 
 
 @pytest.mark.asyncio
+async def test_manual_workout_submission() -> None:
+    saved: Dict[str, Any] = {}
+
+    class ManualRepo(WorkoutRepository):
+        async def list_recent_workouts(self, days: int) -> List[WorkoutLog]:  # pragma: no cover - unused in test
+            return []
+
+        async def fetch_latest_athlete_profile(self) -> Dict[str, Any]:
+            return {"max_hr": 188, "resting_hr": 52}
+
+        async def save_workout(
+            self,
+            detail: Dict[str, Any],
+            attachment: str,
+            hr_drift: float,
+            vo2max: float,
+            *,
+            tss: Optional[float] = None,
+            intensity_factor: Optional[float] = None,
+        ) -> None:
+            saved["detail"] = detail
+            saved["hr_drift"] = hr_drift
+            saved["vo2max"] = vo2max
+            saved["tss"] = tss
+            saved["intensity_factor"] = intensity_factor
+
+        async def fill_missing_metrics(self, page_id: str) -> Optional[WorkoutLog]:  # pragma: no cover - unused in test
+            return None
+
+    app.dependency_overrides[get_workout_repository] = lambda: ManualRepo()
+
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.post(
+                "/v2/workout-logs/manual",
+                headers={"x-api-key": "test-key"},
+                json={
+                    "name": "Strength Session",
+                    "start_time": "2025-02-01T10:00:00Z",
+                    "duration_minutes": 60,
+                    "average_heartrate": 142,
+                    "max_heartrate": 168,
+                    "calories": 420,
+                    "notes": "Superset upper body and core work.",
+                },
+            )
+    finally:
+        app.dependency_overrides.pop(get_workout_repository, None)
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["type"] == "Gym"
+    assert body["intensity_factor"] is not None
+    assert body["tss"] is not None
+
+    assert saved["detail"]["type"] == "Gym"
+    assert saved["detail"]["elapsed_time"] == 3600
+    assert saved["detail"]["average_heartrate"] == 142
+    assert saved["hr_drift"] == 0.0
+    assert saved["vo2max"] == 0.0
+    assert saved["intensity_factor"] == body["intensity_factor"]
+    assert saved["tss"] == body["tss"]
+
+@pytest.mark.asyncio
 async def test_process_activity_uses_laps_and_computes_metrics() -> None:
     from src.services.interfaces import NotionAPI
     from src.strava import StravaActivityCoordinator
