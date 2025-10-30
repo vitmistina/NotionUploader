@@ -108,11 +108,15 @@ class ManualWorkoutSubmission(BaseModel):
     duration_minutes: float = Field(
         ..., gt=0, description="Total session duration expressed in minutes."
     )
-    average_heartrate: Optional[float] = Field(
-        None, description="Average heart rate recorded for the session."
+    average_heartrate: float = Field(
+        ...,
+        gt=0,
+        description="Average heart rate recorded for the session.",
     )
-    max_heartrate: Optional[float] = Field(
-        None, description="Maximum heart rate recorded for the session."
+    max_heartrate: float = Field(
+        ...,
+        gt=0,
+        description="Maximum heart rate recorded for the session.",
     )
     distance_meters: Optional[float] = Field(
         None, description="Optional distance covered in meters."
