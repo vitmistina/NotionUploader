@@ -355,6 +355,51 @@
         "is_consequential": false
       }
     },
+    "/v2/workout-logs/manual": {
+      "post": {
+        "summary": "Create Manual Workout",
+        "operationId": "create_manual_workout_v2_workout_logs_manual_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualWorkoutSubmission"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualWorkoutResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "x-openai-isConsequential": false,
+        "is_consequential": false
+      }
+    },
     "/v2/complex-advice": {
       "get": {
         "summary": "Get Complex Advice",
@@ -834,6 +879,275 @@
         ],
         "title": "LinearRegressionResult",
         "description": "Slope, intercept, and coefficient of determination for a metric."
+      },
+      "ManualWorkoutResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time"
+          },
+          "duration_s": {
+            "type": "integer",
+            "title": "Duration S"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "description": "Stored workout type.",
+            "default": "Gym"
+          },
+          "intensity_factor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intensity Factor",
+            "description": "Estimated or provided intensity factor."
+          },
+          "tss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tss",
+            "description": "Estimated or provided Training Stress Score."
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "start_time",
+          "duration_s"
+        ],
+        "title": "ManualWorkoutResponse",
+        "description": "API response returned after storing a manual workout submission."
+      },
+      "ManualWorkoutSubmission": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Human-readable workout name or summary."
+          },
+          "start_time": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start Time",
+            "description": "UTC timestamp when the workout began."
+          },
+          "duration_minutes": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Duration Minutes",
+            "description": "Total session duration expressed in minutes."
+          },
+          "average_heartrate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Heartrate",
+            "description": "Average heart rate recorded for the session."
+          },
+          "max_heartrate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Heartrate",
+            "description": "Maximum heart rate recorded for the session."
+          },
+          "distance_meters": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance Meters",
+            "description": "Optional distance covered in meters."
+          },
+          "elevation_meters": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation Meters",
+            "description": "Optional elevation gain in meters."
+          },
+          "calories": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calories",
+            "description": "Estimated calories expended during the session."
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes",
+            "description": "Free-form notes or description of the workout."
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id",
+            "description": "Optional numeric identifier used for deduplicating entries."
+          },
+          "average_cadence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Cadence",
+            "description": "Optional average cadence data."
+          },
+          "average_watts": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Watts",
+            "description": "Optional average power in watts."
+          },
+          "weighted_average_watts": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weighted Average Watts",
+            "description": "Optional weighted average power in watts."
+          },
+          "kilojoules": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kilojoules",
+            "description": "Optional total work in kilojoules."
+          },
+          "tss": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tss",
+            "description": "Optional Training Stress Score if already calculated."
+          },
+          "intensity_factor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intensity Factor",
+            "description": "Optional intensity factor if already calculated."
+          },
+          "hr_drift_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Drift Percent",
+            "description": "Optional heart rate drift percentage estimate."
+          },
+          "vo2max_minutes": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vo2Max Minutes",
+            "description": "Optional minutes spent at/above VO\u2082 max intensity."
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "start_time",
+          "duration_minutes"
+        ],
+        "title": "ManualWorkoutSubmission",
+        "description": "Payload describing a manually logged workout extracted by a GPT agent."
       },
       "NutritionEntriesResponse": {
         "properties": {
