@@ -960,26 +960,14 @@
             "description": "Total session duration expressed in minutes."
           },
           "average_heartrate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "number",
+            "exclusiveMinimum": 0.0,
             "title": "Average Heartrate",
             "description": "Average heart rate recorded for the session."
           },
           "max_heartrate": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "number",
+            "exclusiveMinimum": 0.0,
             "title": "Max Heartrate",
             "description": "Maximum heart rate recorded for the session."
           },
@@ -1144,7 +1132,9 @@
         "required": [
           "name",
           "start_time",
-          "duration_minutes"
+          "duration_minutes",
+          "average_heartrate",
+          "max_heartrate"
         ],
         "title": "ManualWorkoutSubmission",
         "description": "Payload describing a manually logged workout extracted by a GPT agent."

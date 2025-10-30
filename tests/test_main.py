@@ -614,6 +614,105 @@ async def test_manual_workout_submission() -> None:
     assert saved["tss"] == body["tss"]
 
 @pytest.mark.asyncio
+async def test_manual_workout_missing_max_heartrate_rejected() -> None:
+    class ManualRepo(WorkoutRepository):
+        async def list_recent_workouts(self, days: int) -> List[WorkoutLog]:  # pragma: no cover - unused in test
+            return []
+
+        async def fetch_latest_athlete_profile(self) -> Dict[str, Any]:  # pragma: no cover - unused in test
+            return {"max_hr": 188, "resting_hr": 52}
+
+        async def save_workout(
+            self,
+            detail: Dict[str, Any],
+            attachment: str,
+            hr_drift: float,
+            vo2max: float,
+            *,
+            tss: Optional[float] = None,
+            intensity_factor: Optional[float] = None,
+        ) -> None:  # pragma: no cover - request should fail before saving
+            raise AssertionError("save_workout should not be called when validation fails")
+
+        async def fill_missing_metrics(self, page_id: str) -> Optional[WorkoutLog]:  # pragma: no cover - unused in test
+            return None
+
+    app.dependency_overrides[get_workout_repository] = lambda: ManualRepo()
+
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.post(
+                "/v2/workout-logs/manual",
+                headers={"x-api-key": "test-key"},
+                json={
+                    "name": "Strength Session",
+                    "start_time": "2025-02-01T10:00:00Z",
+                    "duration_minutes": 60,
+                    "average_heartrate": 142,
+                    "notes": "Superset upper body and core work.",
+                },
+            )
+    finally:
+        app.dependency_overrides.pop(get_workout_repository, None)
+
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert detail[0]["loc"] == ["body", "max_heartrate"]
+    assert detail[0]["msg"] == "Field required"
+
+
+@pytest.mark.asyncio
+async def test_manual_workout_rejects_null_heartrate_values() -> None:
+    class ManualRepo(WorkoutRepository):
+        async def list_recent_workouts(self, days: int) -> List[WorkoutLog]:  # pragma: no cover - unused in test
+            return []
+
+        async def fetch_latest_athlete_profile(self) -> Dict[str, Any]:  # pragma: no cover - unused in test
+            return {"max_hr": 188, "resting_hr": 52}
+
+        async def save_workout(
+            self,
+            detail: Dict[str, Any],
+            attachment: str,
+            hr_drift: float,
+            vo2max: float,
+            *,
+            tss: Optional[float] = None,
+            intensity_factor: Optional[float] = None,
+        ) -> None:  # pragma: no cover - request should fail before saving
+            raise AssertionError("save_workout should not be called when validation fails")
+
+        async def fill_missing_metrics(self, page_id: str) -> Optional[WorkoutLog]:  # pragma: no cover - unused in test
+            return None
+
+    app.dependency_overrides[get_workout_repository] = lambda: ManualRepo()
+
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.post(
+                "/v2/workout-logs/manual",
+                headers={"x-api-key": "test-key"},
+                json={
+                    "name": "Strength Session",
+                    "start_time": "2025-02-01T10:00:00Z",
+                    "duration_minutes": 60,
+                    "average_heartrate": None,
+                    "max_heartrate": 168,
+                    "notes": "Superset upper body and core work.",
+                },
+            )
+    finally:
+        app.dependency_overrides.pop(get_workout_repository, None)
+
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert detail[0]["loc"] == ["body", "average_heartrate"]
+    assert "Input should be a valid number" in detail[0]["msg"]
+
+
+@pytest.mark.asyncio
 async def test_process_activity_uses_laps_and_computes_metrics() -> None:
     from src.services.interfaces import NotionAPI
     from src.strava import StravaActivityCoordinator
