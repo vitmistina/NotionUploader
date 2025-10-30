@@ -15,4 +15,4 @@ def verify_api_key(
     settings: Settings = Depends(get_settings),
 ) -> None:
     if not x_api_key or x_api_key != settings.api_key:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+        raise HTTPException(status_code=401, detail={"error": "Unauthorized"})

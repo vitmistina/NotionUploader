@@ -60,7 +60,7 @@ class StravaActivityCoordinator:
         try:
             activity = await self.fetch_activity(activity_id)
         except StravaAuthError as exc:  # pragma: no cover - exercised via HTTPException
-            raise HTTPException(status_code=500, detail="Auth failure") from exc
+            raise HTTPException(status_code=500, detail={"error": "Auth failure"}) from exc
 
         athlete = await self.fetch_athlete()
         metrics = self.compute_metrics(activity, athlete)

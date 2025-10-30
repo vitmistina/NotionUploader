@@ -27,9 +27,13 @@ class NotionClient(NotionAPI):
             async with httpx.AsyncClient(timeout=self._timeout) as client:
                 resp = await client.request(method, url, headers=self._headers, **kwargs)
         except httpx.ReadTimeout as exc:  # pragma: no cover - network failure
-            raise HTTPException(status_code=504, detail="Request to Notion timed out") from exc
+            raise HTTPException(
+                status_code=504, detail={"error": "Request to Notion timed out"}
+            ) from exc
         if resp.status_code != 200:
-            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+            raise HTTPException(
+                status_code=resp.status_code, detail={"error": resp.text}
+            )
         return resp
 
     async def query(self, database_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:

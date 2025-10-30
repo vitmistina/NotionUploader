@@ -203,17 +203,3 @@ class ManualWorkoutSubmission(BaseModel):
         return detail
 
 
-class ManualWorkoutResponse(BaseModel):
-    """API response returned after storing a manual workout submission."""
-
-    id: int
-    name: str
-    start_time: datetime
-    duration_s: int
-    type: str = Field("Gym", description="Stored workout type.")
-    intensity_factor: Optional[float] = Field(
-        None, description="Estimated or provided intensity factor."
-    )
-    tss: Optional[float] = Field(
-        None, description="Estimated or provided Training Stress Score."
-    )

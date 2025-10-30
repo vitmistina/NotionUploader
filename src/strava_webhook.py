@@ -24,7 +24,9 @@ async def verify_subscription(
     settings: Settings = Depends(get_settings),
 ) -> dict[str, str]:
     if hub_verify_token != settings.strava_verify_token or hub_mode != "subscribe":
-        raise HTTPException(status_code=403, detail="Invalid verification token")
+        raise HTTPException(
+            status_code=403, detail={"error": "Invalid verification token"}
+        )
     return {"hub.challenge": hub_challenge}
 
 
@@ -39,7 +41,7 @@ async def strava_event(
         event = json.loads(body)
     except json.JSONDecodeError:
         logger.exception("Invalid Strava webhook payload: %s", body.decode("utf-8", "replace"))
-        raise HTTPException(status_code=400, detail="Invalid payload")
+        raise HTTPException(status_code=400, detail={"error": "Invalid payload"})
 
     aspect = event.get("aspect_type")
 
@@ -49,6 +51,8 @@ async def strava_event(
             await service.process_activity(int(event["object_id"]))
         except Exception:
             logger.exception("Error processing Strava webhook event: %s", event)
-            raise HTTPException(status_code=400, detail="Error processing webhook")
+            raise HTTPException(
+                status_code=400, detail={"error": "Error processing webhook"}
+            )
 
     return {"status": "ok"}
