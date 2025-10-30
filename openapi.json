@@ -309,6 +309,52 @@
         "is_consequential": false
       }
     },
+    "/v2/workout-logs/{page_id}/fill": {
+      "post": {
+        "summary": "Fill Workout Metrics",
+        "operationId": "fill_workout_metrics_v2_workout_logs__page_id__fill_post",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Page Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkoutLog"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false,
+        "is_consequential": false
+      }
+    },
     "/v2/complex-advice": {
       "get": {
         "summary": "Get Complex Advice",

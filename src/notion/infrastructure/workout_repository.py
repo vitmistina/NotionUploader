@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import Depends
 
+from ...metrics import estimate_if_tss_from_hr
 from ...models.workout import WorkoutLog
 from ...services.interfaces import NotionAPI
 from ...services.notion import get_notion_client
@@ -23,11 +24,20 @@ class NotionWorkoutRepository(WorkoutRepository):
         start = (datetime.utcnow() - timedelta(days=days)).date().isoformat()
         payload = {"filter": {"property": "Date", "date": {"on_or_after": start}}}
         response = await self._client.query(self._settings.notion_workout_database_id, payload)
+        athlete = await self.fetch_latest_athlete_profile()
+        hr_max_athlete = athlete.get("max_hr")
+        hr_rest_athlete = athlete.get("resting_hr")
         workouts: List[WorkoutLog] = []
         for page in response.get("results", []):
             workout = self._parse_workout_page(page)
             if workout:
-                workouts.append(workout)
+                workouts.append(
+                    self._augment_with_estimates(
+                        workout,
+                        hr_max_athlete=hr_max_athlete,
+                        hr_rest_athlete=hr_rest_athlete,
+                    )
+                )
         return workouts
 
     async def fetch_latest_athlete_profile(self) -> Dict[str, Any]:
@@ -58,6 +68,24 @@ class NotionWorkoutRepository(WorkoutRepository):
         tss: Optional[float] = None,
         intensity_factor: Optional[float] = None,
     ) -> None:
+        if intensity_factor is None or tss is None:
+            athlete = await self.fetch_latest_athlete_profile()
+            hr_max_athlete = athlete.get("max_hr")
+            hr_rest_athlete = athlete.get("resting_hr")
+            estimate = estimate_if_tss_from_hr(
+                hr_avg_session=detail.get("average_heartrate"),
+                hr_max_session=detail.get("max_heartrate"),
+                dur_s=detail.get("moving_time") or detail.get("elapsed_time"),
+                hr_max_athlete=hr_max_athlete,
+                hr_rest_athlete=hr_rest_athlete,
+                kcal=detail.get("calories"),
+            )
+            if estimate:
+                if intensity_factor is None:
+                    intensity_factor = estimate[0]
+                if tss is None:
+                    tss = estimate[1]
+
         start_date = detail.get("start_date")
         date_only = (
             start_date.split("T")[0]
@@ -75,7 +103,7 @@ class NotionWorkoutRepository(WorkoutRepository):
             "Elevation [m]": {"number": detail.get("total_elevation_gain")},
             "Type": {
                 "rich_text": [
-                    {"text": {"content": str(detail.get("type", ""))}}
+                    {"text": {"content": str(detail.get("type") or "Gym")}}
                 ]
             },
             "Id": {"number": detail["id"]},
@@ -118,6 +146,34 @@ class NotionWorkoutRepository(WorkoutRepository):
             "properties": props,
         }
         await self._client.create(payload)
+
+    async def fill_missing_metrics(self, page_id: str) -> Optional[WorkoutLog]:
+        page = await self._client.retrieve(page_id)
+        workout = self._parse_workout_page(page)
+        if workout is None:
+            return None
+
+        athlete = await self.fetch_latest_athlete_profile()
+        updated = self._augment_with_estimates(
+            workout,
+            hr_max_athlete=athlete.get("max_hr"),
+            hr_rest_athlete=athlete.get("resting_hr"),
+        )
+
+        props: Dict[str, Any] = {}
+        if workout.type != updated.type:
+            props["Type"] = {
+                "rich_text": [{"text": {"content": updated.type}}]
+            }
+        if workout.tss != updated.tss:
+            self._add_number_prop(props, "TSS", updated.tss)
+        if workout.intensity_factor != updated.intensity_factor:
+            self._add_number_prop(props, "IF", updated.intensity_factor)
+
+        if props:
+            await self._client.update(page_id, {"properties": props})
+
+        return updated
 
     @staticmethod
     def _add_number_prop(
@@ -187,6 +243,45 @@ class NotionWorkoutRepository(WorkoutRepository):
             )
         except Exception:
             return None
+
+    @staticmethod
+    def _augment_with_estimates(
+        workout: WorkoutLog,
+        *,
+        hr_max_athlete: Optional[float],
+        hr_rest_athlete: Optional[float],
+    ) -> WorkoutLog:
+        updates: Dict[str, Any] = {}
+
+        needs_hr_metrics = (
+            (workout.intensity_factor is None or workout.tss is None)
+            and workout.average_heartrate is not None
+            and workout.max_heartrate is not None
+            and workout.duration_s > 0
+            and hr_max_athlete is not None
+        )
+
+        if needs_hr_metrics:
+            estimate = estimate_if_tss_from_hr(
+                hr_avg_session=workout.average_heartrate,
+                hr_max_session=workout.max_heartrate,
+                dur_s=workout.duration_s,
+                hr_max_athlete=hr_max_athlete,
+                hr_rest_athlete=hr_rest_athlete,
+                kcal=workout.kcal,
+            )
+            if estimate:
+                if workout.intensity_factor is None:
+                    updates["intensity_factor"] = estimate[0]
+                if workout.tss is None:
+                    updates["tss"] = estimate[1]
+
+        if not workout.type:
+            updates["type"] = "Gym"
+
+        if updates:
+            return workout.model_copy(update=updates)
+        return workout
 
 
 def get_workout_repository(
