@@ -1,0 +1,19 @@
+meta {
+  name: Complex data
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/v2/complex-advice?days=7
+  body: none
+  auth: inherit
+}
+
+params:query {
+  days: 7
+}
+
+settings {
+  encodeUrl: true
+}
