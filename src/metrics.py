@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from .models.body import (
     BodyMeasurement,
@@ -242,3 +242,73 @@ def vo2max_minutes(
         total_vo2_seconds += fraction_in_vo2_zone * lap_seconds
 
     return total_vo2_seconds / 60.0
+def estimate_if_tss_from_hr(
+    *,
+    hr_avg_session: Optional[float],
+    hr_max_session: Optional[float],
+    dur_s: Optional[float],
+    hr_max_athlete: Optional[float],
+    hr_rest_athlete: Optional[float] = None,
+    kcal: Optional[float] = None,  # Included for signature parity / future use
+) -> Optional[Tuple[float, float]]:
+    """Estimate IF and TSS from heart-rate data when power metrics are absent.
+
+    Args:
+        hr_avg_session: Average heart rate during the session (bpm).
+        hr_max_session: Maximum heart rate recorded for the session (bpm).
+        dur_s: Activity duration in seconds.
+        hr_max_athlete: Athlete's maximum heart rate (bpm).
+        hr_rest_athlete: Athlete's resting heart rate (bpm). Defaults to 66 when ``None``.
+        kcal: Optional calories expended (unused presently).
+
+    Returns:
+        Tuple of (intensity factor, TSS) rounded to (2, 1) decimals respectively
+        when estimation is possible. Returns ``None`` if inputs are insufficient.
+    """
+
+    del kcal  # appease linters while keeping signature parity for future use
+
+    if (
+        hr_avg_session is None
+        or hr_max_session is None
+        or dur_s is None
+        or dur_s <= 0
+        or hr_max_athlete is None
+    ):
+        return None
+
+    if hr_avg_session <= 0 or hr_max_session <= 0 or hr_max_athlete <= 0:
+        return None
+
+    rest_hr = (
+        hr_rest_athlete if hr_rest_athlete is not None and hr_rest_athlete > 0 else 66.0
+    )
+
+    lthr_guess = 0.90 * hr_max_athlete
+    lthr_candidate = min(
+        lthr_guess, max(0.85 * hr_max_athlete, 0.98 * hr_max_session)
+    )
+    if lthr_candidate <= rest_hr + 10:
+        lthr = lthr_guess
+    else:
+        lthr = lthr_candidate
+
+    hr_range = max(1.0, hr_max_athlete - rest_hr)
+    thr_range = max(1.0, lthr - rest_hr)
+
+    if hr_avg_session <= rest_hr + 5:
+        if_est = 0.30
+    else:
+        if_base = (hr_avg_session - rest_hr) / thr_range
+        supra = max(0.0, hr_max_session - lthr)
+        supra_cap = max(1.0, hr_max_athlete - lthr)
+        bump = 0.08 * (supra / supra_cap) if supra_cap else 0.0
+        if_est = max(0.30, min(1.35, if_base + bump))
+
+    # Guard extremely low threshold spread once more after IF determination.
+    if thr_range <= 1.0 and hr_range <= 1.0:
+        if_est = 0.30
+
+    tss = (dur_s / 3600.0) * if_est * 100.0
+    return round(if_est, 2), round(tss, 1)
+

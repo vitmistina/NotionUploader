@@ -7,7 +7,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.metrics import add_moving_average, hr_drift_from_splits, linear_regression
+from src.metrics import (
+    add_moving_average,
+    estimate_if_tss_from_hr,
+    hr_drift_from_splits,
+    linear_regression,
+)
 from src.models.body import BodyMeasurement
 
 
@@ -124,3 +129,42 @@ def test_hr_drift_without_heart_rate_data_returns_zero() -> None:
     ]
 
     assert hr_drift_from_splits(splits) == 0.0
+
+
+def test_estimate_if_tss_from_hr_returns_values() -> None:
+    estimate = estimate_if_tss_from_hr(
+        hr_avg_session=145,
+        hr_max_session=165,
+        dur_s=3600,
+        hr_max_athlete=190,
+        hr_rest_athlete=60,
+    )
+
+    assert estimate is not None
+    if_est, tss = estimate
+    assert if_est == pytest.approx(0.85, abs=0.01)
+    assert tss == pytest.approx(84.5, abs=0.5)
+
+
+def test_estimate_if_tss_from_hr_handles_low_effort() -> None:
+    estimate = estimate_if_tss_from_hr(
+        hr_avg_session=65,
+        hr_max_session=90,
+        dur_s=1800,
+        hr_max_athlete=190,
+        hr_rest_athlete=60,
+    )
+
+    assert estimate == (0.3, 15.0)
+
+
+def test_estimate_if_tss_from_hr_requires_minimum_inputs() -> None:
+    assert (
+        estimate_if_tss_from_hr(
+            hr_avg_session=None,
+            hr_max_session=150,
+            dur_s=1800,
+            hr_max_athlete=190,
+        )
+        is None
+    )

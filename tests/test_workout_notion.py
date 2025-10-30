@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import pytest
 
@@ -13,17 +13,33 @@ from src.notion.infrastructure.workout_repository import NotionWorkoutRepository
 
 
 class DummyNotion(NotionAPI):
-    def __init__(self, results: List[Dict[str, Any]]) -> None:
+    def __init__(
+        self,
+        results: List[Dict[str, Any]],
+        *,
+        profile_result: Dict[str, Any] | None = None,
+    ) -> None:
         self.results = results
+        self.pages = {item.get("id", f"page-{idx}"): item for idx, item in enumerate(results)}
+        self.updated: List[Tuple[str, Dict[str, Any]]] = []
+        self.profile_result = profile_result
 
     async def query(self, database_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        if database_id == settings.notion_athlete_profile_database_id and self.profile_result:
+            return {"results": [self.profile_result]}
         return {"results": self.results}
 
     async def create(self, payload: Dict[str, Any]) -> Dict[str, Any]:  # pragma: no cover - unused in tests
         return {"id": "dummy"}
 
     async def update(self, page_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:  # pragma: no cover - unused in tests
+        self.updated.append((page_id, payload))
+        if page_id in self.pages:
+            self.pages[page_id].setdefault("properties", {}).update(payload.get("properties", {}))
         return {"id": page_id}
+
+    async def retrieve(self, page_id: str) -> Dict[str, Any]:
+        return self.pages.get(page_id, {"id": page_id, "properties": {}})
 
 
 settings = Settings(
@@ -59,9 +75,18 @@ def _notion_title(content: str) -> Dict[str, Any]:
 
 @pytest.mark.asyncio
 async def test_fetch_workouts_includes_minimal_entries() -> None:
+    profile = {
+        "properties": {
+            "FTP Watts": {"number": None},
+            "Weight Kg": {"number": None},
+            "Max HR": {"number": 190},
+        }
+    }
+
     notion = DummyNotion(
         [
             {
+                "id": "page-1",
                 "properties": {
                     "Name": _notion_title("Outdoor Run"),
                     "Date": {"date": {"start": "2025-10-08"}},
@@ -72,6 +97,7 @@ async def test_fetch_workouts_includes_minimal_entries() -> None:
                 }
             },
             {
+                "id": "page-2",
                 "properties": {
                     "Name": _notion_title("PT in gym"),
                     "Date": {"date": {"start": "2025-10-09"}},
@@ -82,7 +108,8 @@ async def test_fetch_workouts_includes_minimal_entries() -> None:
                     "Notes": _notion_rich_text("Inclined walk warmup."),
                 }
             },
-        ]
+        ],
+        profile_result=profile,
     )
 
     repository = NotionWorkoutRepository(settings=settings, client=notion)
@@ -91,3 +118,86 @@ async def test_fetch_workouts_includes_minimal_entries() -> None:
     names = [w.name for w in workouts]
     assert "Outdoor Run" in names
     assert "PT in gym" in names
+
+
+@pytest.mark.asyncio
+async def test_list_recent_workouts_backfills_metrics() -> None:
+    profile = {
+        "properties": {
+            "FTP Watts": {"number": None},
+            "Weight Kg": {"number": None},
+            "Max HR": {"number": 188},
+        }
+    }
+
+    notion = DummyNotion(
+        [
+            {
+                "id": "page-backfill",
+                "properties": {
+                    "Name": _notion_title("Gym Session"),
+                    "Date": {"date": {"start": "2025-10-10"}},
+                    "Duration [s]": _notion_number(2700),
+                    "Distance [m]": _notion_number(0),
+                    "Elevation [m]": _notion_number(0),
+                    "Type": _notion_rich_text(None),
+                    "Average Heartrate": _notion_number(140),
+                    "Max Heartrate": _notion_number(165),
+                    "TSS": _notion_number(None),
+                    "IF": _notion_number(None),
+                },
+            }
+        ],
+        profile_result=profile,
+    )
+
+    repository = NotionWorkoutRepository(settings=settings, client=notion)
+    workouts = await repository.list_recent_workouts(7)
+
+    assert workouts[0].type == "Gym"
+    assert workouts[0].tss is not None
+    assert workouts[0].intensity_factor is not None
+
+
+@pytest.mark.asyncio
+async def test_fill_missing_metrics_updates_notion() -> None:
+    profile = {
+        "properties": {
+            "FTP Watts": {"number": None},
+            "Weight Kg": {"number": None},
+            "Max HR": {"number": 185},
+        }
+    }
+
+    notion = DummyNotion(
+        [
+            {
+                "id": "page-fill",
+                "properties": {
+                    "Name": _notion_title("Gym Session"),
+                    "Date": {"date": {"start": "2025-10-10"}},
+                    "Duration [s]": _notion_number(3600),
+                    "Distance [m]": _notion_number(0),
+                    "Elevation [m]": _notion_number(0),
+                    "Type": _notion_rich_text(None),
+                    "Average Heartrate": _notion_number(150),
+                    "Max Heartrate": _notion_number(175),
+                    "TSS": _notion_number(None),
+                    "IF": _notion_number(None),
+                },
+            }
+        ],
+        profile_result=profile,
+    )
+
+    repository = NotionWorkoutRepository(settings=settings, client=notion)
+    updated = await repository.fill_missing_metrics("page-fill")
+
+    assert updated is not None
+    assert updated.tss is not None
+    assert updated.intensity_factor is not None
+    assert notion.updated, "Expected update call to be recorded"
+    page_id, payload = notion.updated[-1]
+    assert page_id == "page-fill"
+    props = payload["properties"]
+    assert "TSS" in props and "IF" in props and "Type" in props

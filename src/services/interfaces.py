@@ -22,6 +22,9 @@ class NotionAPI(Protocol):
     async def update(self, page_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Update an existing page and return the updated object."""
 
+    async def retrieve(self, page_id: str) -> Dict[str, Any]:
+        """Fetch a page by its identifier."""
+
 
 @runtime_checkable
 class StravaAPI(Protocol):

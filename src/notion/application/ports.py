@@ -43,3 +43,6 @@ class WorkoutRepository(Protocol):
         intensity_factor: Optional[float] = None,
     ) -> None:
         """Persist or update a workout activity in Notion."""
+
+    async def fill_missing_metrics(self, page_id: str) -> Optional[WorkoutLog]:
+        """Estimate and persist missing metrics for a workout by page id."""

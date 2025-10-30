@@ -434,6 +434,7 @@ async def test_manual_strava_processing() -> None:
 @pytest.mark.asyncio
 async def test_get_workout_logs(respx_mock: respx.MockRouter) -> None:
     notion_url = "https://api.notion.com/v1/databases/workout-db123/query"
+    profile_url = "https://api.notion.com/v1/databases/profile-db123/query"
     page = {
         "properties": {
             "Name": {"title": [{"text": {"content": "Run"}}]},
@@ -457,6 +458,22 @@ async def test_get_workout_logs(respx_mock: respx.MockRouter) -> None:
         }
     }
     respx_mock.post(notion_url).mock(return_value=httpx.Response(200, json={"results": [page]}))
+    respx_mock.post(profile_url).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "results": [
+                    {
+                        "properties": {
+                            "FTP Watts": {"number": 250},
+                            "Weight Kg": {"number": 70},
+                            "Max HR": {"number": 190},
+                        }
+                    }
+                ]
+            },
+        )
+    )
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
@@ -470,6 +487,65 @@ async def test_get_workout_logs(respx_mock: respx.MockRouter) -> None:
     assert data[0]["tss"] == 50.0
     assert data[0]["intensity_factor"] == 0.85
     assert data[0]["notes"] == "Great ride"
+
+
+@pytest.mark.asyncio
+async def test_fill_workout_metrics(respx_mock: respx.MockRouter) -> None:
+    workout_id = "page-fill"
+    retrieve_url = f"https://api.notion.com/v1/pages/{workout_id}"
+    update_url = retrieve_url
+    profile_url = "https://api.notion.com/v1/databases/profile-db123/query"
+    respx_mock.get(retrieve_url).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": workout_id,
+                "properties": {
+                    "Name": {"title": [{"text": {"content": "Gym"}}]},
+                    "Date": {"date": {"start": "2023-01-01"}},
+                    "Duration [s]": {"number": 3600},
+                    "Distance [m]": {"number": 0},
+                    "Elevation [m]": {"number": 0},
+                    "Type": {"rich_text": []},
+                    "Average Heartrate": {"number": 150},
+                    "Max Heartrate": {"number": 175},
+                    "TSS": {"number": None},
+                    "IF": {"number": None},
+                },
+            },
+        )
+    )
+    respx_mock.patch(update_url).mock(
+        return_value=httpx.Response(200, json={"id": workout_id})
+    )
+    respx_mock.post(profile_url).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "results": [
+                    {
+                        "properties": {
+                            "FTP Watts": {"number": None},
+                            "Weight Kg": {"number": None},
+                            "Max HR": {"number": 190},
+                        }
+                    }
+                ]
+            },
+        )
+    )
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        response = await client.post(
+            f"/v2/workout-logs/{workout_id}/fill", headers={"x-api-key": "test-key"}
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["type"] == "Gym"
+    assert body["tss"] is not None
+    assert body["intensity_factor"] is not None
 
 
 @pytest.mark.asyncio
@@ -521,6 +597,9 @@ async def test_process_activity_uses_laps_and_computes_metrics() -> None:
         async def update(self, page_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:  # pragma: no cover - unused
             return {"id": page_id}
 
+        async def retrieve(self, page_id: str) -> Dict[str, Any]:  # pragma: no cover - unused
+            return {"id": page_id, "properties": {}}
+
     notion = FakeNotionClient()
     repository = NotionWorkoutRepository(settings=test_settings, client=notion)
 
@@ -540,12 +619,14 @@ async def test_process_activity_uses_laps_and_computes_metrics() -> None:
 async def test_save_workout_to_notion_updates_existing(respx_mock: respx.MockRouter) -> None:
     detail = {"id": 123, "name": "Ride"}
     query_url = "https://api.notion.com/v1/databases/workout-db123/query"
+    profile_url = "https://api.notion.com/v1/databases/profile-db123/query"
     respx_mock.post(query_url).mock(
         return_value=httpx.Response(200, json={"results": [{"id": "page123"}]})
     )
     patch_route = respx_mock.patch("https://api.notion.com/v1/pages/page123").mock(
         return_value=httpx.Response(200, json={"id": "page123"})
     )
+    respx_mock.post(profile_url).mock(return_value=httpx.Response(200, json={"results": []}))
 
     repository = NotionWorkoutRepository(settings=test_settings, client=test_notion_client)
     await repository.save_workout(detail, "", 0.0, 0.0)
@@ -557,10 +638,12 @@ async def test_save_workout_to_notion_updates_existing(respx_mock: respx.MockRou
 async def test_save_workout_to_notion_inserts_when_missing(respx_mock: respx.MockRouter) -> None:
     detail = {"id": 321, "name": "Ride"}
     query_url = "https://api.notion.com/v1/databases/workout-db123/query"
+    profile_url = "https://api.notion.com/v1/databases/profile-db123/query"
     respx_mock.post(query_url).mock(return_value=httpx.Response(200, json={"results": []}))
     post_route = respx_mock.post("https://api.notion.com/v1/pages").mock(
         return_value=httpx.Response(200, json={"id": "page321"})
     )
+    respx_mock.post(profile_url).mock(return_value=httpx.Response(200, json={"results": []}))
 
     repository = NotionWorkoutRepository(settings=test_settings, client=test_notion_client)
     await repository.save_workout(detail, "", 0.0, 0.0)
@@ -714,6 +797,9 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
             tss: Optional[float] = None,
             intensity_factor: Optional[float] = None,
         ) -> None:  # pragma: no cover - unused in test
+            return None
+
+        async def fill_missing_metrics(self, page_id: str) -> Optional[WorkoutLog]:  # pragma: no cover - unused in test
             return None
 
     from src.routes import advice as advice_routes

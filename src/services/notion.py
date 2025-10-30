@@ -44,6 +44,10 @@ class NotionClient(NotionAPI):
         resp = await self._request("PATCH", f"/pages/{page_id}", json=payload)
         return resp.json()
 
+    async def retrieve(self, page_id: str) -> Dict[str, Any]:
+        resp = await self._request("GET", f"/pages/{page_id}")
+        return resp.json()
+
 def get_notion_client(settings: Settings = Depends(get_settings)) -> NotionAPI:
     """Dependency that provides a configured Notion API client."""
 
