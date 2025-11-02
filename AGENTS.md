@@ -15,6 +15,11 @@
   ```bash
   pytest -q
   ```
+- Enforce the coverage quality gate before merging:
+  ```bash
+  pytest --cov=src --cov-report=term-missing --cov-report=json --cov-fail-under=90
+  python scripts/coverage_gate.py coverage.json --total-threshold=90 --per-file-threshold=75
+  ```
 - As a recurring chore, fix all Ruff lint findings and keep `requirements.txt` up to date:
   ```bash
   ruff check --fix src tests
