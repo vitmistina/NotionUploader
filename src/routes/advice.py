@@ -10,9 +10,8 @@ from ..models.advice import SummaryAdvice
 from ..models.body import BodyMetricTrends
 from ..models.time import get_local_time
 from ..nutrition import get_daily_nutrition_summaries
-from ..services.redis import RedisClient, get_redis
-from ..settings import Settings, get_settings
-from ..withings import get_measurements
+from ..withings.application import WithingsMeasurementsPort, fetch_withings_measurements
+from ..withings.infrastructure import get_withings_port
 from ..notion.application.ports import NutritionRepository, WorkoutRepository
 from ..notion.infrastructure.nutrition_repository import get_nutrition_repository
 from ..notion.infrastructure.workout_repository import get_workout_repository
@@ -25,8 +24,7 @@ router: APIRouter = APIRouter()
 async def get_summary_advice(
     days: int = Query(7, description="Number of days of data to retrieve."),
     timezone: str = timezone_query,
-    redis: RedisClient = Depends(get_redis),
-    settings: Settings = Depends(get_settings),
+    withings_port: WithingsMeasurementsPort = Depends(get_withings_port),
     nutrition_repository: NutritionRepository = Depends(get_nutrition_repository),
     workout_repository: WorkoutRepository = Depends(get_workout_repository),
 ) -> SummaryAdvice:
@@ -35,7 +33,7 @@ async def get_summary_advice(
     nutrition_coro = get_daily_nutrition_summaries(
         start.isoformat(), end.isoformat(), nutrition_repository
     )
-    metrics_coro = get_measurements(days, redis, settings)
+    metrics_coro = fetch_withings_measurements(withings_port, days)
     workouts_coro = workout_repository.list_recent_workouts(days)
     athlete_coro = workout_repository.fetch_latest_athlete_profile()
     nutrition, metrics, workouts, athlete_metrics = await asyncio.gather(
