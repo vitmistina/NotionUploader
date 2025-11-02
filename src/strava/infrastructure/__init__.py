@@ -1,5 +1,6 @@
 """Infrastructure adapters for the Strava integration."""
 
-from .client import StravaAuthError, StravaClient
+from ..application.ports import StravaAuthError
+from .client import StravaClient
 
 __all__ = ["StravaAuthError", "StravaClient"]
