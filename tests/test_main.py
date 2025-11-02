@@ -20,6 +20,8 @@ from src.services.notion import NotionClient
 from src.models.body import BodyMeasurement
 from src.models.workout import WorkoutLog
 from src.settings import Settings, get_settings
+from src.withings.application.ports import WithingsMeasurementsPort
+from src.withings.infrastructure import get_withings_port
 from src.notion.application.ports import NutritionRepository, WorkoutRepository
 from src.notion.infrastructure.nutrition_repository import get_nutrition_repository
 from src.notion.infrastructure.workout_repository import (
@@ -814,44 +816,46 @@ async def test_save_workout_to_notion_inserts_when_missing(respx_mock: respx.Moc
 
 @pytest.mark.asyncio
 async def test_body_measurements_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def fake_measurements(
-        days: int, redis: DummyRedis, settings: Settings
-    ) -> List[BodyMeasurement]:
-        base = datetime(2023, 1, 1)
-        return [
-            BodyMeasurement.model_construct(
-                measurement_time=base,
-                weight_kg=70.0,
-                fat_mass_kg=10.0,
-                muscle_mass_kg=30.0,
-                bone_mass_kg=5.0,
-                hydration_kg=40.0,
-                fat_free_mass_kg=60.0,
-                body_fat_percent=14.0,
-                device_name="Scale",
-            ),
-            BodyMeasurement.model_construct(
-                measurement_time=base + timedelta(days=2),
-                weight_kg=72.0,
-                fat_mass_kg=11.0,
-                muscle_mass_kg=31.0,
-                bone_mass_kg=5.0,
-                hydration_kg=40.0,
-                fat_free_mass_kg=60.0,
-                body_fat_percent=15.0,
-                device_name="Scale",
-            ),
-        ]
+    class FakeWithingsPort(WithingsMeasurementsPort):
+        async def refresh_access_token(self) -> str:  # pragma: no cover - unused
+            return "token"
 
-    from src.routes import metrics as metrics_routes
+        async def fetch_measurements(self, days: int) -> List[BodyMeasurement]:
+            base = datetime(2023, 1, 1)
+            return [
+                BodyMeasurement.model_construct(
+                    measurement_time=base,
+                    weight_kg=70.0,
+                    fat_mass_kg=10.0,
+                    muscle_mass_kg=30.0,
+                    bone_mass_kg=5.0,
+                    hydration_kg=40.0,
+                    fat_free_mass_kg=60.0,
+                    body_fat_percent=14.0,
+                    device_name="Scale",
+                ),
+                BodyMeasurement.model_construct(
+                    measurement_time=base + timedelta(days=2),
+                    weight_kg=72.0,
+                    fat_mass_kg=11.0,
+                    muscle_mass_kg=31.0,
+                    bone_mass_kg=5.0,
+                    hydration_kg=40.0,
+                    fat_free_mass_kg=60.0,
+                    body_fat_percent=15.0,
+                    device_name="Scale",
+                ),
+            ]
 
-    monkeypatch.setattr(metrics_routes, "get_measurements", fake_measurements)
+    app.dependency_overrides[get_withings_port] = lambda: FakeWithingsPort()
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
         response: httpx.Response = await client.get(
             "/v2/body-measurements", headers={"x-api-key": "test-key"}
         )
+
+    app.dependency_overrides.pop(get_withings_port, None)
 
     assert response.status_code == 200
     payload = response.json()
@@ -891,34 +895,36 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
             }
         ]
 
-    async def fake_metrics(
-        days: int, redis: DummyRedis, settings: Settings
-    ) -> List[BodyMeasurement]:
-        base = datetime(2023, 1, 1)
-        return [
-            BodyMeasurement.model_construct(
-                measurement_time=base,
-                weight_kg=70.0,
-                fat_mass_kg=10.0,
-                muscle_mass_kg=30.0,
-                bone_mass_kg=5.0,
-                hydration_kg=40.0,
-                fat_free_mass_kg=60.0,
-                body_fat_percent=14.0,
-                device_name="Scale",
-            ),
-            BodyMeasurement.model_construct(
-                measurement_time=base + timedelta(days=2),
-                weight_kg=72.0,
-                fat_mass_kg=11.0,
-                muscle_mass_kg=31.0,
-                bone_mass_kg=5.0,
-                hydration_kg=40.0,
-                fat_free_mass_kg=60.0,
-                body_fat_percent=15.0,
-                device_name="Scale",
-            ),
-        ]
+    class FakeWithingsPort(WithingsMeasurementsPort):
+        async def refresh_access_token(self) -> str:  # pragma: no cover - unused
+            return "token"
+
+        async def fetch_measurements(self, days: int) -> List[BodyMeasurement]:
+            base = datetime(2023, 1, 1)
+            return [
+                BodyMeasurement.model_construct(
+                    measurement_time=base,
+                    weight_kg=70.0,
+                    fat_mass_kg=10.0,
+                    muscle_mass_kg=30.0,
+                    bone_mass_kg=5.0,
+                    hydration_kg=40.0,
+                    fat_free_mass_kg=60.0,
+                    body_fat_percent=14.0,
+                    device_name="Scale",
+                ),
+                BodyMeasurement.model_construct(
+                    measurement_time=base + timedelta(days=2),
+                    weight_kg=72.0,
+                    fat_mass_kg=11.0,
+                    muscle_mass_kg=31.0,
+                    bone_mass_kg=5.0,
+                    hydration_kg=40.0,
+                    fat_free_mass_kg=60.0,
+                    body_fat_percent=15.0,
+                    device_name="Scale",
+                ),
+            ]
 
     class FakeNutritionRepo(NutritionRepository):
         async def create_entry(self, entry: Any) -> None:  # pragma: no cover - unused in test
@@ -966,10 +972,10 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     from src.routes import advice as advice_routes
 
     monkeypatch.setattr(advice_routes, "get_daily_nutrition_summaries", fake_nutrition)
-    monkeypatch.setattr(advice_routes, "get_measurements", fake_metrics)
 
     app.dependency_overrides[get_nutrition_repository] = lambda: FakeNutritionRepo()
     app.dependency_overrides[get_workout_repository] = lambda: FakeWorkoutRepo()
+    app.dependency_overrides[get_withings_port] = lambda: FakeWithingsPort()
 
     try:
         transport = httpx.ASGITransport(app=app)
@@ -981,6 +987,7 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     finally:
         app.dependency_overrides.pop(get_nutrition_repository, None)
         app.dependency_overrides.pop(get_workout_repository, None)
+        app.dependency_overrides.pop(get_withings_port, None)
 
     assert response.status_code == 200
     data: Dict[str, Any] = response.json()
