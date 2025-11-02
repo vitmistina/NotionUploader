@@ -1,21 +1,58 @@
 [project]
-name = "calory-tracker"
+name = "NotionUploader"
 version = "0.1.0"
-description = "Add your description here"
+description = "FastAPI service that syncs nutrition, workout, and biometric data into Notion databases."
 readme = "README.md"
 requires-python = ">=3.12"
+authors = [
+    { name = "NotionUploader Contributors" }
+]
+maintainers = [
+    { name = "NotionUploader Maintainers" }
+]
+license = { text = "Proprietary" }
+keywords = ["notion", "fastapi", "fitness", "nutrition", "workouts"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "License :: Other/Proprietary License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Software Development :: Libraries :: Application Frameworks"
+]
 dependencies = [
-    "fastapi==0.110.0",
-    "httpx==0.27.0",
-    "openapi-spec-validator==0.7.2",
-    "pydantic-settings==2.0.3",
+    "fastapi~=0.110.0",
+    "httpx~=0.27.0",
+    "openapi-spec-validator~=0.7.2",
+    "pydantic-settings~=2.0.3",
+    "python-dotenv~=1.0.1",
+    "upstash-redis~=1.4.0",
+    "uvicorn[standard]~=0.29.0",
+    'tzdata; sys_platform == "win32"'
+]
+
+[project.urls]
+Homepage = "https://notionuploader-gr.onrender.com"
+Documentation = "https://notionuploader-gr.onrender.com/v2/api-schema"
+
+[tool.uv]
+package = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[dependency-groups]
+dev = [
     "pytest==8.2.0",
     "pytest-asyncio==0.23.5",
     "pytest-cov==5.0.0",
-    "python-dotenv==1.0.1",
     "respx==0.20.1",
-    "ruff>=0.14.3",
-    "upstash-redis==1.4.0",
-    "uvicorn[standard]==0.29.0",
-    'tzdata; sys_platform == "win32"'
+    "ruff>=0.14.3"
 ]
+
+[build-system]
+requires = ["hatchling>=1.18.0"]
+build-backend = "hatchling.build"
