@@ -22,6 +22,7 @@ Thumbs.db
 
 # Testing / Coverage
 .coverage
+coverage.json
 htmlcov/
 .tox/
 .pytest_cache/
