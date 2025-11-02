@@ -6,13 +6,10 @@ import httpx
 
 from ...services.redis import RedisClient
 from ...settings import Settings
+from ..application.ports import StravaAuthError, StravaClientPort
 
 
-class StravaAuthError(RuntimeError):
-    """Raised when Strava authentication fails."""
-
-
-class StravaClient:
+class StravaClient(StravaClientPort):
     """HTTP client for Strava that manages OAuth token refresh."""
 
     def __init__(

@@ -14,7 +14,8 @@ from ...notion.infrastructure.workout_repository import get_workout_repository
 from ...services.redis import RedisClient, get_redis
 from ...settings import Settings, get_settings
 from ..domain.metrics import compute_activity_metrics
-from ..infrastructure.client import StravaAuthError, StravaClient
+from ..infrastructure.client import StravaClient
+from .ports import StravaAuthError, StravaClientPort
 
 
 class StravaActivityCoordinator:
@@ -22,7 +23,7 @@ class StravaActivityCoordinator:
 
     def __init__(
         self,
-        client: StravaClient,
+        client: StravaClientPort,
         workout_repository: WorkoutRepository,
     ) -> None:
         self._client = client
