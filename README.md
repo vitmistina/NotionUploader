@@ -6,35 +6,36 @@ FastAPI service that syncs nutrition, workout, and biometric data from external 
 - **API surface**: `src/routes/` defines versioned FastAPI routers (nutrition, metrics, workouts, advice, Strava) secured by an API key middleware and exposed through `src/main.py`.
 - **Integrations**: Provider-specific clients live in `src/services/` and `src/withings.py` / `src/strava.py`. Shared helpers reside in `src/metrics.py` and `src/notion/`.
 - **Configuration**: `src/settings.py` centralizes environment variables with Pydantic settings and supports Render's uppercase environment naming.
-- **Schemas**: `openapi.json` is generated from the running app via `python generate_openapi.py` when routes or models change.
+- **Schemas**: `openapi.json` is generated from the running app via `uv run python generate_openapi.py` when routes or models change.
 
 ## Prerequisites
 - Python 3.11+
 - Access to the required external credentials (Notion, Strava, Withings, Upstash Redis)
 
-> **Virtual environments are mandatory** for both human contributors and automation. Always install dependencies inside `.venv/` using `python -m venv .venv` before touching `pip`.
+> **Project-local environments are mandatory** for both human contributors and automation. Create them with `uv` so dependency resolution stays consistent across contributors and CI.
 
 ## Quickstart
 ```bash
-# 1. Create and activate an isolated environment
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+# 1. Create an isolated environment managed by uv
+uv venv
+source .venv/bin/activate   # POSIX shells
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+# Windows Command Prompt: .venv\Scripts\activate.bat
 
-# 2. Install runtime and tooling dependencies
-pip install --upgrade pip
-pip install -r requirements.txt
+# 2. Install runtime and tooling dependencies declared in pyproject.toml / uv.lock
+uv sync --dev
 
 # 3. Provide secrets (Render uses uppercase env vars automatically)
 # Create .env and populate it with the variables listed below for local development
 
 # 4. Launch the API locally
-uvicorn src.main:app --reload
+uv run uvicorn src.main:app --reload
 ```
 
 With the server running, `/` and `/healthz` provide lightweight health checks, while the authenticated API lives under `/v2`. Regenerate the OpenAPI description after changing models or routes:
 
 ```bash
-python generate_openapi.py
+uv run python generate_openapi.py
 ```
 
 ## Configuration Reference
@@ -57,23 +58,22 @@ In Render, configure these values as dashboard environment variables; deployment
 
 ## Testing & Quality Gates
 ```bash
-source .venv/bin/activate
-pytest -q
-ruff check --fix src tests
-ruff check src tests
+uv run pytest -q
+uv run ruff check --fix src tests
+uv run ruff check src tests
 ```
 
 Run tests and linting before every commit to keep CI green. Agents interacting with this repository should follow the same workflow inside their own virtual environment.
 
 ## Contribution Workflow Expectations
-- **Stay in `.venv/`**: Never install requirements globally; recreate the virtual environment if dependency resolution drifts.
-- **Sync contracts**: When FastAPI routes or models change, regenerate `openapi.json` with `python generate_openapi.py` and commit the result.
+- **Stay in `.venv/`**: Never install dependencies globally; recreate the virtual environment with `uv venv` / `uv sync` if dependency resolution drifts.
+- **Sync contracts**: When FastAPI routes or models change, regenerate `openapi.json` with `uv run python generate_openapi.py` and commit the result.
 - **Review the README**: Treat this document as the source of truth for setup and deployment. Re-read it after each change and update any sections impacted by your modifications before merging.
 
 ## Deployment Notes
 - Render deploys this service via webhook; health checks hit `/healthz`.
 - The production OpenAPI schema is exposed at `/v2/api-schema` with the server URL pre-set to Render (`https://notionuploader-groa.onrender.com`).
-- Ensure any schema or requirements changes are committed together so the Render build installs the correct dependencies.
+- Ensure any schema or dependency changes are committed together so the Render build installs the correct versions from `uv.lock`.
 
 ## Repository Map
 ```
@@ -83,6 +83,7 @@ Run tests and linting before every commit to keep CI green. Agents interacting w
 ├── examples/       # Sample payloads and workflows for manual testing
 ├── generate_openapi.py
 ├── render.yaml     # Render infrastructure definition
-├── requirements.txt
+├── pyproject.toml  # Project metadata and dependency declarations
+├── uv.lock         # Locked dependency versions resolved by uv
 └── openapi.json    # Generated API contract (keep in sync with code)
 ```
