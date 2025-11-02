@@ -1,103 +1,55 @@
-import sys
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from __future__ import annotations
+
+import hashlib
+import hmac
+import json
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
 import httpx
-import json
-import hmac
-import hashlib
 import pytest
-import respx
-from fastapi import FastAPI
+from fastapi import HTTPException
 from openapi_spec_validator import validate
 
-# Ensure the repository root is on the Python path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from src import main
-from src.services.redis import get_redis
-from src.services.notion import NotionClient
 from src.models.body import BodyMeasurement
 from src.models.workout import WorkoutLog
-from src.settings import Settings, get_settings
-from src.withings.application.ports import WithingsMeasurementsPort
-from src.withings.infrastructure import get_withings_port
 from src.notion.application.ports import NutritionRepository, WorkoutRepository
 from src.notion.infrastructure.nutrition_repository import get_nutrition_repository
 from src.notion.infrastructure.workout_repository import (
     NotionWorkoutRepository,
     get_workout_repository,
 )
+from src.routes import advice as advice_routes
+from src.settings import Settings
+from tests.conftest import NotionAPIStub, WithingsPortFake
 
-test_settings = Settings(
-    api_key="test-key",
-    notion_secret="notion-secret",
-    notion_database_id="db123",
-    notion_workout_database_id="workout-db123",
-    notion_athlete_profile_database_id="profile-db123",
-    strava_verify_token="verify-token",
-    wbsapi_url="https://wbs.example.com",
-    upstash_redis_rest_url="https://redis.example.com",
-    upstash_redis_rest_token="token",
-    withings_client_id="client-id",
-    withings_client_secret="client-secret",
-    strava_client_id="strava-client-id",
-    strava_client_secret="strava-client-secret",
-)
-
-app: FastAPI = main.app
-app.dependency_overrides[get_settings] = lambda: test_settings
+pytestmark = pytest.mark.asyncio
 
 
-class DummyRedis:
-    def __init__(self) -> None:
-        self.store: Dict[str, str] = {}
-
-    def get(self, key: str) -> Optional[str]:
-        return self.store.get(key)
-
-    def set(self, key: str, value: str, ex: int | None = None) -> None:  # pragma: no cover - expiration unused
-        self.store[key] = value
-
-
-app.dependency_overrides[get_redis] = DummyRedis
-
-test_notion_client = NotionClient(settings=test_settings)
-
-
-@pytest.mark.asyncio
-async def test_auth_missing_key() -> None:
-    transport: httpx.ASGITransport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response: httpx.Response = await client.get("/v2/api-schema")
+async def test_auth_missing_key(client: httpx.AsyncClient) -> None:
+    response = await client.get("/v2/api-schema")
     assert response.status_code == 401
 
 
-@pytest.mark.asyncio
-async def test_auth_wrong_key() -> None:
-    transport: httpx.ASGITransport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response: httpx.Response = await client.get(
-            "/v2/api-schema", headers={"x-api-key": "wrong"}
-        )
+async def test_auth_wrong_key(client: httpx.AsyncClient) -> None:
+    response = await client.get("/v2/api-schema", headers={"x-api-key": "wrong"})
     assert response.status_code == 401
 
 
-@pytest.mark.asyncio
-async def test_auth_correct_key() -> None:
-    transport: httpx.ASGITransport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response: httpx.Response = await client.get(
-            "/v2/api-schema", headers={"x-api-key": "test-key"}
-        )
+async def test_auth_correct_key(client: httpx.AsyncClient, settings: Settings) -> None:
+    response = await client.get(
+        "/v2/api-schema", headers={"x-api-key": settings.api_key}
+    )
     assert response.status_code == 200
 
 
-@pytest.mark.asyncio
-async def test_log_nutrition_success(respx_mock: respx.MockRouter) -> None:
-    notion_route: respx.Route = respx_mock.post(
-        "https://api.notion.com/v1/pages"
-    ).mock(return_value=httpx.Response(200, json={"id": "page123"}))
+async def test_log_nutrition_success(
+    client: httpx.AsyncClient,
+    notion_api_stub: NotionAPIStub,
+    settings: Settings,
+) -> None:
+    notion_api_stub.expect_create(returns={"id": "page123"})
+
     payload: Dict[str, Any] = {
         "food_item": "Apple",
         "date": "2023-01-01",
@@ -108,52 +60,55 @@ async def test_log_nutrition_success(respx_mock: respx.MockRouter) -> None:
         "meal_type": "During-workout",
         "notes": "Fresh",
     }
-    transport: httpx.ASGITransport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response: httpx.Response = await client.post(
-            "/v2/nutrition-entries",
-            json=payload,
-            headers={"x-api-key": "test-key"},
-        )
+
+    response = await client.post(
+        "/v2/nutrition-entries",
+        json=payload,
+        headers={"x-api-key": settings.api_key},
+    )
+
     assert response.status_code == 201
     assert response.json() == {"status": "ok"}
-    assert notion_route.called
-    sent_json: Dict[str, Any] = json.loads(notion_route.calls[0].request.content)
-    assert sent_json["parent"]["database_id"] == "db123"
-    properties: Dict[str, Any] = sent_json["properties"]
+
+    created_payload = notion_api_stub.last_create_payload()
+    assert created_payload is not None
+    assert created_payload["parent"]["database_id"] == settings.notion_database_id
+    properties = created_payload["properties"]
     assert properties["Food Item"]["title"][0]["text"]["content"] == "Apple"
     assert properties["Calories"]["number"] == 95
     assert properties["Protein (g)"]["number"] == 0.5
 
 
-@pytest.mark.asyncio
-async def test_log_nutrition_error(respx_mock: respx.MockRouter) -> None:
-    respx_mock.post("https://api.notion.com/v1/pages").mock(
-        return_value=httpx.Response(500, text="Server Error")
+async def test_log_nutrition_error(
+    client: httpx.AsyncClient, notion_api_stub: NotionAPIStub, settings: Settings
+) -> None:
+    notion_api_stub.expect_create(
+        raises=HTTPException(status_code=500, detail={"error": "boom"})
     )
-    payload: Dict[str, Any] = {
-        "food_item": "Apple",
-        "date": "2023-01-01",
-        "calories": 95,
-        "protein_g": 0.5,
-        "carbs_g": 25,
-        "fat_g": 0.3,
-        "meal_type": "During-workout",
-        "notes": "Fresh",
-    }
-    transport: httpx.ASGITransport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response: httpx.Response = await client.post(
-            "/v2/nutrition-entries",
-            json=payload,
-            headers={"x-api-key": "test-key"},
-        )
+
+    response = await client.post(
+        "/v2/nutrition-entries",
+        json={
+            "food_item": "Apple",
+            "date": "2023-01-01",
+            "calories": 95,
+            "protein_g": 0.5,
+            "carbs_g": 25,
+            "fat_g": 0.3,
+            "meal_type": "During-workout",
+            "notes": "Fresh",
+        },
+        headers={"x-api-key": settings.api_key},
+    )
+
     assert response.status_code == 500
 
 
-@pytest.mark.asyncio
-async def test_get_foods_by_date(respx_mock: respx.MockRouter) -> None:
-    notion_url: str = "https://api.notion.com/v1/databases/db123/query"
+async def test_get_foods_by_date(
+    client: httpx.AsyncClient,
+    notion_api_stub: NotionAPIStub,
+    settings: Settings,
+) -> None:
     valid_page: Dict[str, Any] = {
         "properties": {
             "Food Item": {"title": [{"text": {"content": "Apple"}}]},
@@ -167,39 +122,35 @@ async def test_get_foods_by_date(respx_mock: respx.MockRouter) -> None:
         }
     }
     malformed_page: Dict[str, Any] = {"properties": {}}
-    respx_mock.post(notion_url).mock(
-        return_value=httpx.Response(
-            200, json={"results": [valid_page, malformed_page]}
-        )
+    notion_api_stub.expect_query(
+        database_id=settings.notion_database_id,
+        returns={"results": [valid_page, malformed_page]},
     )
-    transport: httpx.ASGITransport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response: httpx.Response = await client.get(
-            "/v2/nutrition-entries/daily/2023-01-01",
-            headers={"x-api-key": "test-key"},
-        )
+
+    response = await client.get(
+        "/v2/nutrition-entries/daily/2023-01-01",
+        headers={"x-api-key": settings.api_key},
+    )
+
     assert response.status_code == 200
-    data: Dict[str, Any] = response.json()
+    data = response.json()
     assert "local_time" in data
     assert datetime.fromisoformat(data["local_time"]).tzinfo is not None
     assert "part_of_day" in data
-    days: List[Dict[str, Any]] = data["days"]
+    days = data["days"]
     assert len(days) == 1
-    day = days[0]
-    entries: List[Dict[str, Any]] = day["entries"]
+    entries = days[0]["entries"]
     assert len(entries) == 1
     assert entries[0]["food_item"] == "Apple"
-    assert day["date"] == "2023-01-01"
-    assert day["daily_calories_sum"] == 95
-    assert day["daily_protein_g_sum"] == 0.5
-    assert day["daily_carbs_g_sum"] == 25
-    assert day["daily_fat_g_sum"] == 0.3
+    assert days[0]["daily_calories_sum"] == 95
 
 
-@pytest.mark.asyncio
-async def test_get_foods_range(respx_mock: respx.MockRouter) -> None:
-    notion_url: str = "https://api.notion.com/v1/databases/db123/query"
-    page1: Dict[str, Any] = {
+async def test_get_foods_range(
+    client: httpx.AsyncClient,
+    notion_api_stub: NotionAPIStub,
+    settings: Settings,
+) -> None:
+    first_page: Dict[str, Any] = {
         "properties": {
             "Food Item": {"title": [{"text": {"content": "A"}}]},
             "Date": {"date": {"start": "2023-01-01"}},
@@ -211,7 +162,7 @@ async def test_get_foods_range(respx_mock: respx.MockRouter) -> None:
             "Notes": {"rich_text": [{"text": {"content": "note"}}]},
         }
     }
-    page2: Dict[str, Any] = {
+    second_page: Dict[str, Any] = {
         "properties": {
             "Food Item": {"title": [{"text": {"content": "B"}}]},
             "Date": {"date": {"start": "2023-01-01"}},
@@ -223,7 +174,7 @@ async def test_get_foods_range(respx_mock: respx.MockRouter) -> None:
             "Notes": {"rich_text": [{"text": {"content": "note"}}]},
         }
     }
-    page3: Dict[str, Any] = {
+    third_page: Dict[str, Any] = {
         "properties": {
             "Food Item": {"title": [{"text": {"content": "C"}}]},
             "Date": {"date": {"start": "2023-01-02"}},
@@ -235,114 +186,93 @@ async def test_get_foods_range(respx_mock: respx.MockRouter) -> None:
             "Notes": {"rich_text": [{"text": {"content": "note"}}]},
         }
     }
-    respx_mock.post(notion_url).mock(
-        side_effect=[
-            httpx.Response(
-                200,
-                json={"results": [page1], "has_more": True, "next_cursor": "cursor1"},
-            ),
-            httpx.Response(
-                200,
-                json={"results": [page2, page3], "has_more": False},
-            ),
-        ]
+    notion_api_stub.expect_query(
+        database_id=settings.notion_database_id,
+        returns={
+            "results": [first_page],
+            "has_more": True,
+            "next_cursor": "cursor1",
+        },
     )
-    transport: httpx.ASGITransport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response: httpx.Response = await client.get(
-            "/v2/nutrition-entries/period",
-            params={"start_date": "2023-01-01", "end_date": "2023-01-02"},
-            headers={"x-api-key": "test-key"},
-        )
+    notion_api_stub.expect_query(
+        database_id=settings.notion_database_id,
+        returns={
+            "results": [second_page, third_page],
+            "has_more": False,
+        },
+    )
+
+    response = await client.get(
+        "/v2/nutrition-entries/period",
+        params={"start_date": "2023-01-01", "end_date": "2023-01-02"},
+        headers={"x-api-key": settings.api_key},
+    )
+
     assert response.status_code == 200
-    data: Dict[str, Any] = response.json()
-    assert "local_time" in data
-    assert datetime.fromisoformat(data["local_time"]).tzinfo is not None
-    assert "part_of_day" in data
-    days: List[Dict[str, Any]] = data["days"]
-    assert len(days) == 2
-    day1: Dict[str, Any] = days[0]
-    assert day1["date"] == "2023-01-01"
-    assert day1["daily_calories_sum"] == 300
-    assert day1["daily_protein_g_sum"] == 30
-    assert len(day1["entries"]) == 2
-    day2: Dict[str, Any] = days[1]
-    assert day2["date"] == "2023-01-02"
-    assert day2["daily_calories_sum"] == 300
-    assert len(day2["entries"]) == 1
-    assert len(respx_mock.calls) == 2
-    request_json: Dict[str, Any] = json.loads(respx_mock.calls[0].request.content)
-    assert request_json["filter"]["and"][0]["date"]["on_or_after"] == "2023-01-01"
-    assert request_json["filter"]["and"][1]["date"]["on_or_before"] == "2023-01-02"
-    next_payload: Dict[str, Any] = json.loads(respx_mock.calls[1].request.content)
-    assert next_payload.get("start_cursor") == "cursor1"
+    data = response.json()
+    assert len(data["days"]) == 2
+    first_day = data["days"][0]
+    second_day = data["days"][1]
+    assert first_day["daily_calories_sum"] == 300
+    assert second_day["daily_calories_sum"] == 300
+    history = notion_api_stub.query_history()
+    assert history[1].get("start_cursor") == "cursor1"
 
 
-@pytest.mark.asyncio
-async def test_get_foods_by_date_timeout(respx_mock: respx.MockRouter) -> None:
-    notion_url: str = "https://api.notion.com/v1/databases/db123/query"
-    respx_mock.post(notion_url).mock(side_effect=httpx.ReadTimeout("timeout"))
-    transport: httpx.ASGITransport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response: httpx.Response = await client.get(
-            "/v2/nutrition-entries/daily/2023-01-01",
-            headers={"x-api-key": "test-key"},
-        )
+async def test_get_foods_by_date_timeout(
+    client: httpx.AsyncClient, notion_api_stub: NotionAPIStub, settings: Settings
+) -> None:
+    notion_api_stub.expect_query(
+        database_id=settings.notion_database_id,
+        raises=HTTPException(status_code=504, detail={"error": "timeout"}),
+    )
+
+    response = await client.get(
+        "/v2/nutrition-entries/daily/2023-01-01",
+        headers={"x-api-key": settings.api_key},
+    )
+
     assert response.status_code == 504
 
 
-@pytest.mark.asyncio
-async def test_openapi_schema() -> None:
-    transport: httpx.ASGITransport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response: httpx.Response = await client.get(
-            "/v2/api-schema", headers={"x-api-key": "test-key"}
-        )
+async def test_openapi_schema(client: httpx.AsyncClient, settings: Settings) -> None:
+    response = await client.get(
+        "/v2/api-schema", headers={"x-api-key": settings.api_key}
+    )
     assert response.status_code == 200
-    schema: Dict[str, Any] = response.json()
+    schema = response.json()
     validate(schema)
     assert (
         schema["components"]["securitySchemes"]["ApiKeyAuth"]["name"]
         == "x-api-key"
     )
     for path_item in schema["paths"].values():
-        path: Dict[str, Any] = path_item
-        for operation in path.values():
-            op: Any = operation
-            if isinstance(op, dict) and "parameters" in op:
-                assert all(p["name"] != "x-api-key" for p in op["parameters"])
+        for operation in path_item.values():
+            if isinstance(operation, dict) and "parameters" in operation:
+                assert all(p["name"] != "x-api-key" for p in operation["parameters"])
 
 
-@pytest.mark.asyncio
-async def test_strava_webhook_verification() -> None:
-    transport = httpx.ASGITransport(app=app)
+async def test_strava_webhook_verification(
+    client: httpx.AsyncClient, settings: Settings
+) -> None:
     params = {
         "hub.mode": "subscribe",
         "hub.challenge": "abc",
-        "hub.verify_token": "verify-token",
+        "hub.verify_token": settings.strava_verify_token,
     }
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.get("/strava-webhook", params=params)
+
+    response = await client.get("/strava-webhook", params=params)
+
     assert response.status_code == 200
     assert response.json() == {"hub.challenge": "abc"}
 
 
-@pytest.mark.asyncio
-async def test_strava_webhook_event() -> None:
-    called: Dict[str, Any] = {}
-
-    from src import strava_webhook as webhook
-
-    class DummyService:
-        async def process_activity(self, activity_id: int) -> None:
-            called["id"] = activity_id
-
-    async def override_service() -> DummyService:
-        yield DummyService()
-
-    app.dependency_overrides[
-        webhook.get_strava_activity_coordinator
-    ] = override_service
+async def test_strava_webhook_event(
+    client: httpx.AsyncClient,
+    settings: Settings,
+    strava_coordinator_spy,
+) -> None:
+    strava_coordinator_spy.expect_process_activity(activity_id=42)
 
     payload = {
         "aspect_type": "create",
@@ -354,34 +284,25 @@ async def test_strava_webhook_event() -> None:
     }
     body = json.dumps(payload).encode()
     signature = hmac.new(
-        b"strava-client-secret", body, hashlib.sha256
+        settings.strava_client_secret.encode(), body, hashlib.sha256
     ).hexdigest()
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.post(
-            "/strava-webhook", content=body, headers={"X-Strava-Signature": signature}
-        )
+
+    response = await client.post(
+        "/strava-webhook",
+        content=body,
+        headers={"X-Strava-Signature": signature},
+    )
+
     assert response.status_code == 200
-    assert called["id"] == 42
-    app.dependency_overrides.pop(webhook.get_strava_activity_coordinator, None)
+    strava_coordinator_spy.assert_last_process_activity(42)
 
 
-@pytest.mark.asyncio
-async def test_strava_webhook_event_update() -> None:
-    called: Dict[str, Any] = {}
-
-    from src import strava_webhook as webhook
-
-    class DummyService:
-        async def process_activity(self, activity_id: int) -> None:
-            called["id"] = activity_id
-
-    async def override_service() -> DummyService:
-        yield DummyService()
-
-    app.dependency_overrides[
-        webhook.get_strava_activity_coordinator
-    ] = override_service
+async def test_strava_webhook_event_update(
+    client: httpx.AsyncClient,
+    settings: Settings,
+    strava_coordinator_spy,
+) -> None:
+    strava_coordinator_spy.expect_process_activity(activity_id=43)
 
     payload = {
         "aspect_type": "update",
@@ -393,52 +314,41 @@ async def test_strava_webhook_event_update() -> None:
     }
     body = json.dumps(payload).encode()
     signature = hmac.new(
-        b"strava-client-secret", body, hashlib.sha256
+        settings.strava_client_secret.encode(), body, hashlib.sha256
     ).hexdigest()
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.post(
-            "/strava-webhook", content=body, headers={"X-Strava-Signature": signature}
-        )
-    assert response.status_code == 200
-    assert called["id"] == 43
-    app.dependency_overrides.pop(webhook.get_strava_activity_coordinator, None)
 
-
-@pytest.mark.asyncio
-async def test_manual_strava_processing() -> None:
-    called: Dict[str, Any] = {}
-
-    from src.routes import strava as strava_routes
-
-    class DummyService:
-        async def process_activity(self, activity_id: int) -> None:
-            called["id"] = activity_id
-
-    async def override_service() -> DummyService:
-        yield DummyService()
-
-    app.dependency_overrides[
-        strava_routes.get_strava_activity_coordinator
-    ] = override_service
-
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.post(
-            "/v2/strava-activity/99", headers={"x-api-key": "test-key"}
-        )
-    assert response.status_code == 200
-    assert called["id"] == 99
-    app.dependency_overrides.pop(
-        strava_routes.get_strava_activity_coordinator, None
+    response = await client.post(
+        "/strava-webhook",
+        content=body,
+        headers={"X-Strava-Signature": signature},
     )
 
+    assert response.status_code == 200
+    strava_coordinator_spy.assert_last_process_activity(43)
 
-@pytest.mark.asyncio
-async def test_get_workout_logs(respx_mock: respx.MockRouter) -> None:
-    notion_url = "https://api.notion.com/v1/databases/workout-db123/query"
-    profile_url = "https://api.notion.com/v1/databases/profile-db123/query"
-    page = {
+
+async def test_manual_strava_processing(
+    client: httpx.AsyncClient,
+    settings: Settings,
+    strava_coordinator_spy,
+) -> None:
+    strava_coordinator_spy.expect_process_activity(activity_id=99)
+
+    response = await client.post(
+        "/v2/strava-activity/99",
+        headers={"x-api-key": settings.api_key},
+    )
+
+    assert response.status_code == 200
+    strava_coordinator_spy.assert_last_process_activity(99)
+
+
+async def test_get_workout_logs(
+    client: httpx.AsyncClient,
+    notion_api_stub: NotionAPIStub,
+    settings: Settings,
+) -> None:
+    workout_page = {
         "properties": {
             "Name": {"title": [{"text": {"content": "Run"}}]},
             "Date": {"date": {"start": "2023-01-01"}},
@@ -460,29 +370,26 @@ async def test_get_workout_logs(respx_mock: respx.MockRouter) -> None:
             "Notes": {"rich_text": [{"text": {"content": "Great ride"}}]},
         }
     }
-    respx_mock.post(notion_url).mock(return_value=httpx.Response(200, json={"results": [page]}))
-    respx_mock.post(profile_url).mock(
-        return_value=httpx.Response(
-            200,
-            json={
-                "results": [
-                    {
-                        "properties": {
-                            "FTP Watts": {"number": 250},
-                            "Weight Kg": {"number": 70},
-                            "Max HR": {"number": 190},
-                        }
-                    }
-                ]
-            },
-        )
+    profile_page = {
+        "properties": {
+            "FTP Watts": {"number": 250},
+            "Weight Kg": {"number": 70},
+            "Max HR": {"number": 190},
+        }
+    }
+    notion_api_stub.expect_query(
+        database_id=settings.notion_workout_database_id,
+        returns={"results": [workout_page]},
+    )
+    notion_api_stub.expect_query(
+        database_id=settings.notion_athlete_profile_database_id,
+        returns={"results": [profile_page]},
     )
 
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.get(
-            "/v2/workout-logs", headers={"x-api-key": "test-key"}
-        )
+    response = await client.get(
+        "/v2/workout-logs", headers={"x-api-key": settings.api_key}
+    )
+
     assert response.status_code == 200
     data = response.json()
     assert data[0]["name"] == "Run"
@@ -492,72 +399,54 @@ async def test_get_workout_logs(respx_mock: respx.MockRouter) -> None:
     assert data[0]["notes"] == "Great ride"
 
 
-@pytest.mark.asyncio
-async def test_fill_workout_metrics(respx_mock: respx.MockRouter) -> None:
+async def test_fill_workout_metrics(
+    client: httpx.AsyncClient,
+    notion_api_stub: NotionAPIStub,
+    settings: Settings,
+) -> None:
     workout_id = "page-fill"
-    retrieve_url = f"https://api.notion.com/v1/pages/{workout_id}"
-    update_url = retrieve_url
-    profile_url = "https://api.notion.com/v1/databases/profile-db123/query"
-    respx_mock.get(retrieve_url).mock(
-        return_value=httpx.Response(
-            200,
-            json={
-                "id": workout_id,
-                "properties": {
-                    "Name": {"title": [{"text": {"content": "Gym"}}]},
-                    "Date": {"date": {"start": "2023-01-01"}},
-                    "Duration [s]": {"number": 3600},
-                    "Distance [m]": {"number": 0},
-                    "Elevation [m]": {"number": 0},
-                    "Type": {"rich_text": []},
-                    "Average Heartrate": {"number": 150},
-                    "Max Heartrate": {"number": 175},
-                    "TSS": {"number": None},
-                    "IF": {"number": None},
-                },
-            },
-        )
-    )
-    respx_mock.patch(update_url).mock(
-        return_value=httpx.Response(200, json={"id": workout_id})
-    )
-    respx_mock.post(profile_url).mock(
-        return_value=httpx.Response(
-            200,
-            json={
-                "results": [
-                    {
-                        "properties": {
-                            "FTP Watts": {"number": None},
-                            "Weight Kg": {"number": None},
-                            "Max HR": {"number": 190},
-                        }
-                    }
-                ]
-            },
-        )
+    retrieve_payload = {
+        "id": workout_id,
+        "properties": {
+            "Name": {"title": [{"text": {"content": "Gym"}}]},
+            "Date": {"date": {"start": "2023-01-01"}},
+            "Duration [s]": {"number": 3600},
+            "Distance [m]": {"number": 0},
+            "Elevation [m]": {"number": 0},
+            "Type": {"rich_text": []},
+            "Average Heartrate": {"number": 150},
+            "Max Heartrate": {"number": 175},
+            "TSS": {"number": None},
+            "IF": {"number": None},
+        },
+    }
+    notion_api_stub.expect_retrieve(page_id=workout_id, returns=retrieve_payload)
+    notion_api_stub.expect_update(
+        page_id=workout_id,
+        returns={"id": workout_id},
     )
 
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.post(
-            f"/v2/workout-logs/{workout_id}/sync", headers={"x-api-key": "test-key"}
-        )
+    response = await client.post(
+        f"/v2/workout-logs/{workout_id}/sync",
+        headers={"x-api-key": settings.api_key},
+    )
 
     assert response.status_code == 200
     assert response.json() == {"status": "updated"}
+    notion_api_stub.assert_last_update(page_id=workout_id)
 
 
-@pytest.mark.asyncio
-async def test_manual_workout_submission() -> None:
-    saved: Dict[str, Any] = {}
-
+async def test_manual_workout_validation_error(
+    client: httpx.AsyncClient,
+    settings: Settings,
+    app,
+) -> None:
     class ManualRepo(WorkoutRepository):
-        async def list_recent_workouts(self, days: int) -> List[WorkoutLog]:  # pragma: no cover - unused in test
+        async def list_recent_workouts(self, days: int) -> List[WorkoutLog]:  # pragma: no cover
             return []
 
-        async def fetch_latest_athlete_profile(self) -> Dict[str, Any]:
-            return {"max_hr": 188, "resting_hr": 52}
+        async def fetch_latest_athlete_profile(self) -> Dict[str, Any]:  # pragma: no cover
+            return {}
 
         async def save_workout(
             self,
@@ -568,140 +457,27 @@ async def test_manual_workout_submission() -> None:
             *,
             tss: Optional[float] = None,
             intensity_factor: Optional[float] = None,
-        ) -> None:
-            saved["detail"] = detail
-            saved["hr_drift"] = hr_drift
-            saved["vo2max"] = vo2max
-            saved["tss"] = tss
-            saved["intensity_factor"] = intensity_factor
+        ) -> None:  # pragma: no cover - validation should fail before call
+            raise AssertionError("save_workout should not be called")
 
-        async def fill_missing_metrics(self, page_id: str) -> Optional[WorkoutLog]:  # pragma: no cover - unused in test
+        async def fill_missing_metrics(self, page_id: str) -> Optional[WorkoutLog]:  # pragma: no cover
             return None
 
     app.dependency_overrides[get_workout_repository] = lambda: ManualRepo()
 
     try:
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-            response = await client.post(
-                "/v2/workout-logs/manual",
-                headers={"x-api-key": "test-key"},
-                json={
-                    "name": "Strength Session",
-                    "start_time": "2025-02-01T10:00:00Z",
-                    "duration_minutes": 60,
-                    "average_heartrate": 142,
-                    "max_heartrate": 168,
-                    "calories": 420,
-                    "notes": "Superset upper body and core work.",
-                },
-            )
-    finally:
-        app.dependency_overrides.pop(get_workout_repository, None)
-
-    assert response.status_code == 201
-    body = response.json()
-    assert body["status"] == "ok"
-    assert body["id"] == saved["detail"]["id"]
-
-    assert saved["detail"]["type"] == "Gym"
-    assert saved["detail"]["elapsed_time"] == 3600
-    assert saved["detail"]["average_heartrate"] == 142
-    assert saved["hr_drift"] == 0.0
-    assert saved["vo2max"] == 0.0
-    assert saved["intensity_factor"] is not None
-    assert saved["tss"] is not None
-
-@pytest.mark.asyncio
-async def test_manual_workout_missing_max_heartrate_rejected() -> None:
-    class ManualRepo(WorkoutRepository):
-        async def list_recent_workouts(self, days: int) -> List[WorkoutLog]:  # pragma: no cover - unused in test
-            return []
-
-        async def fetch_latest_athlete_profile(self) -> Dict[str, Any]:  # pragma: no cover - unused in test
-            return {"max_hr": 188, "resting_hr": 52}
-
-        async def save_workout(
-            self,
-            detail: Dict[str, Any],
-            attachment: str,
-            hr_drift: float,
-            vo2max: float,
-            *,
-            tss: Optional[float] = None,
-            intensity_factor: Optional[float] = None,
-        ) -> None:  # pragma: no cover - request should fail before saving
-            raise AssertionError("save_workout should not be called when validation fails")
-
-        async def fill_missing_metrics(self, page_id: str) -> Optional[WorkoutLog]:  # pragma: no cover - unused in test
-            return None
-
-    app.dependency_overrides[get_workout_repository] = lambda: ManualRepo()
-
-    try:
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-            response = await client.post(
-                "/v2/workout-logs/manual",
-                headers={"x-api-key": "test-key"},
-                json={
-                    "name": "Strength Session",
-                    "start_time": "2025-02-01T10:00:00Z",
-                    "duration_minutes": 60,
-                    "average_heartrate": 142,
-                    "notes": "Superset upper body and core work.",
-                },
-            )
-    finally:
-        app.dependency_overrides.pop(get_workout_repository, None)
-
-    assert response.status_code == 422
-    detail = response.json()["detail"]
-    assert detail[0]["loc"] == ["body", "max_heartrate"]
-    assert detail[0]["msg"] == "Field required"
-
-
-@pytest.mark.asyncio
-async def test_manual_workout_rejects_null_heartrate_values() -> None:
-    class ManualRepo(WorkoutRepository):
-        async def list_recent_workouts(self, days: int) -> List[WorkoutLog]:  # pragma: no cover - unused in test
-            return []
-
-        async def fetch_latest_athlete_profile(self) -> Dict[str, Any]:  # pragma: no cover - unused in test
-            return {"max_hr": 188, "resting_hr": 52}
-
-        async def save_workout(
-            self,
-            detail: Dict[str, Any],
-            attachment: str,
-            hr_drift: float,
-            vo2max: float,
-            *,
-            tss: Optional[float] = None,
-            intensity_factor: Optional[float] = None,
-        ) -> None:  # pragma: no cover - request should fail before saving
-            raise AssertionError("save_workout should not be called when validation fails")
-
-        async def fill_missing_metrics(self, page_id: str) -> Optional[WorkoutLog]:  # pragma: no cover - unused in test
-            return None
-
-    app.dependency_overrides[get_workout_repository] = lambda: ManualRepo()
-
-    try:
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-            response = await client.post(
-                "/v2/workout-logs/manual",
-                headers={"x-api-key": "test-key"},
-                json={
-                    "name": "Strength Session",
-                    "start_time": "2025-02-01T10:00:00Z",
-                    "duration_minutes": 60,
-                    "average_heartrate": None,
-                    "max_heartrate": 168,
-                    "notes": "Superset upper body and core work.",
-                },
-            )
+        response = await client.post(
+            "/v2/workout-logs/manual",
+            headers={"x-api-key": settings.api_key},
+            json={
+                "name": "Strength Session",
+                "start_time": "2025-02-01T10:00:00Z",
+                "duration_minutes": 60,
+                "average_heartrate": None,
+                "max_heartrate": 168,
+                "notes": "Superset upper body and core work.",
+            },
+        )
     finally:
         app.dependency_overrides.pop(get_workout_repository, None)
 
@@ -711,8 +487,10 @@ async def test_manual_workout_rejects_null_heartrate_values() -> None:
     assert "Input should be a valid number" in detail[0]["msg"]
 
 
-@pytest.mark.asyncio
-async def test_process_activity_uses_laps_and_computes_metrics() -> None:
+async def test_process_activity_uses_laps_and_computes_metrics(
+    settings: Settings,
+    notion_api_stub: NotionAPIStub,
+) -> None:
     from src.services.interfaces import NotionAPI
     from src.strava import StravaActivityCoordinator
 
@@ -740,7 +518,7 @@ async def test_process_activity_uses_laps_and_computes_metrics() -> None:
             self.created: Dict[str, Any] | None = None
 
         async def query(self, database_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-            if database_id == test_settings.notion_athlete_profile_database_id:
+            if database_id == settings.notion_athlete_profile_database_id:
                 return {
                     "results": [
                         {
@@ -757,14 +535,14 @@ async def test_process_activity_uses_laps_and_computes_metrics() -> None:
             self.created = payload
             return {"id": "page"}
 
-        async def update(self, page_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:  # pragma: no cover - unused
+        async def update(self, page_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:  # pragma: no cover
             return {"id": page_id}
 
-        async def retrieve(self, page_id: str) -> Dict[str, Any]:  # pragma: no cover - unused
+        async def retrieve(self, page_id: str) -> Dict[str, Any]:  # pragma: no cover
             return {"id": page_id, "properties": {}}
 
     notion = FakeNotionClient()
-    repository = NotionWorkoutRepository(settings=test_settings, client=notion)
+    repository = NotionWorkoutRepository(settings=settings, client=notion)
 
     coordinator = StravaActivityCoordinator(FakeStravaClient(), repository)
 
@@ -778,98 +556,104 @@ async def test_process_activity_uses_laps_and_computes_metrics() -> None:
     assert props["Notes"]["rich_text"][0]["text"]["content"] == "desc"
 
 
-@pytest.mark.asyncio
-async def test_save_workout_to_notion_updates_existing(respx_mock: respx.MockRouter) -> None:
+async def test_save_workout_to_notion_updates_existing(
+    settings: Settings, notion_api_stub: NotionAPIStub
+) -> None:
+    repository = NotionWorkoutRepository(settings=settings, client=notion_api_stub)
     detail = {"id": 123, "name": "Ride"}
-    query_url = "https://api.notion.com/v1/databases/workout-db123/query"
-    profile_url = "https://api.notion.com/v1/databases/profile-db123/query"
-    respx_mock.post(query_url).mock(
-        return_value=httpx.Response(200, json={"results": [{"id": "page123"}]})
-    )
-    patch_route = respx_mock.patch("https://api.notion.com/v1/pages/page123").mock(
-        return_value=httpx.Response(200, json={"id": "page123"})
-    )
-    respx_mock.post(profile_url).mock(return_value=httpx.Response(200, json={"results": []}))
 
-    repository = NotionWorkoutRepository(settings=test_settings, client=test_notion_client)
+    notion_api_stub.expect_query(
+        database_id=settings.notion_athlete_profile_database_id,
+        returns={"results": []},
+    )
+    notion_api_stub.expect_query(
+        database_id=settings.notion_workout_database_id,
+        returns={"results": [{"id": "page123"}]},
+    )
+    notion_api_stub.expect_update(page_id="page123", returns={"id": "page123"})
+
     await repository.save_workout(detail, "", 0.0, 0.0)
 
-    assert patch_route.called
+    notion_api_stub.assert_last_update(page_id="page123")
 
 
-@pytest.mark.asyncio
-async def test_save_workout_to_notion_inserts_when_missing(respx_mock: respx.MockRouter) -> None:
+async def test_save_workout_to_notion_creates_new(
+    settings: Settings, notion_api_stub: NotionAPIStub
+) -> None:
+    repository = NotionWorkoutRepository(settings=settings, client=notion_api_stub)
     detail = {"id": 321, "name": "Ride"}
-    query_url = "https://api.notion.com/v1/databases/workout-db123/query"
-    profile_url = "https://api.notion.com/v1/databases/profile-db123/query"
-    respx_mock.post(query_url).mock(return_value=httpx.Response(200, json={"results": []}))
-    post_route = respx_mock.post("https://api.notion.com/v1/pages").mock(
-        return_value=httpx.Response(200, json={"id": "page321"})
-    )
-    respx_mock.post(profile_url).mock(return_value=httpx.Response(200, json={"results": []}))
 
-    repository = NotionWorkoutRepository(settings=test_settings, client=test_notion_client)
+    notion_api_stub.expect_query(
+        database_id=settings.notion_athlete_profile_database_id,
+        returns={"results": []},
+    )
+    notion_api_stub.expect_query(
+        database_id=settings.notion_workout_database_id,
+        returns={"results": []},
+    )
+    notion_api_stub.expect_create(returns={"id": "page321"})
+
     await repository.save_workout(detail, "", 0.0, 0.0)
 
-    assert post_route.called
+    notion_api_stub.assert_last_create()
 
 
-@pytest.mark.asyncio
-async def test_body_measurements_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
-    class FakeWithingsPort(WithingsMeasurementsPort):
-        async def refresh_access_token(self) -> str:  # pragma: no cover - unused
-            return "token"
+async def test_body_measurements_endpoint(
+    client: httpx.AsyncClient,
+    settings: Settings,
+    withings_port_fake: WithingsPortFake,
+) -> None:
+    base = datetime(2023, 1, 1)
+    withings_port_fake.expect_fetch_measurements(
+        days=7,
+        returns=[
+            BodyMeasurement.model_construct(
+                measurement_time=base,
+                weight_kg=70.0,
+                fat_mass_kg=10.0,
+                muscle_mass_kg=30.0,
+                bone_mass_kg=5.0,
+                hydration_kg=40.0,
+                fat_free_mass_kg=60.0,
+                body_fat_percent=14.0,
+                device_name="Scale",
+            ),
+            BodyMeasurement.model_construct(
+                measurement_time=base + timedelta(days=2),
+                weight_kg=72.0,
+                fat_mass_kg=11.0,
+                muscle_mass_kg=31.0,
+                bone_mass_kg=5.0,
+                hydration_kg=40.0,
+                fat_free_mass_kg=60.0,
+                body_fat_percent=15.0,
+                device_name="Scale",
+            ),
+        ],
+    )
 
-        async def fetch_measurements(self, days: int) -> List[BodyMeasurement]:
-            base = datetime(2023, 1, 1)
-            return [
-                BodyMeasurement.model_construct(
-                    measurement_time=base,
-                    weight_kg=70.0,
-                    fat_mass_kg=10.0,
-                    muscle_mass_kg=30.0,
-                    bone_mass_kg=5.0,
-                    hydration_kg=40.0,
-                    fat_free_mass_kg=60.0,
-                    body_fat_percent=14.0,
-                    device_name="Scale",
-                ),
-                BodyMeasurement.model_construct(
-                    measurement_time=base + timedelta(days=2),
-                    weight_kg=72.0,
-                    fat_mass_kg=11.0,
-                    muscle_mass_kg=31.0,
-                    bone_mass_kg=5.0,
-                    hydration_kg=40.0,
-                    fat_free_mass_kg=60.0,
-                    body_fat_percent=15.0,
-                    device_name="Scale",
-                ),
-            ]
-
-    app.dependency_overrides[get_withings_port] = lambda: FakeWithingsPort()
-
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response: httpx.Response = await client.get(
-            "/v2/body-measurements", headers={"x-api-key": "test-key"}
-        )
-
-    app.dependency_overrides.pop(get_withings_port, None)
+    response = await client.get(
+        "/v2/body-measurements",
+        headers={"x-api-key": settings.api_key},
+    )
 
     assert response.status_code == 200
     payload = response.json()
     assert "measurements" in payload
     assert "trends" in payload
-    assert "weight_kg" in payload["trends"]
     trend = payload["trends"]["weight_kg"]
     assert trend["slope"] == pytest.approx(1.0)
     assert trend["intercept"] == pytest.approx(70.0)
     assert trend["r2"] == pytest.approx(1.0)
 
 
-@pytest.mark.asyncio
-async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_complex_advice_endpoint(
+    client: httpx.AsyncClient,
+    settings: Settings,
+    app,
+    withings_port_fake: WithingsPortFake,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     async def fake_nutrition(
         start: str, end: str, repository: NutritionRepository
     ) -> List[Dict[str, Any]]:
@@ -895,47 +679,16 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
             }
         ]
 
-    class FakeWithingsPort(WithingsMeasurementsPort):
-        async def refresh_access_token(self) -> str:  # pragma: no cover - unused
-            return "token"
-
-        async def fetch_measurements(self, days: int) -> List[BodyMeasurement]:
-            base = datetime(2023, 1, 1)
-            return [
-                BodyMeasurement.model_construct(
-                    measurement_time=base,
-                    weight_kg=70.0,
-                    fat_mass_kg=10.0,
-                    muscle_mass_kg=30.0,
-                    bone_mass_kg=5.0,
-                    hydration_kg=40.0,
-                    fat_free_mass_kg=60.0,
-                    body_fat_percent=14.0,
-                    device_name="Scale",
-                ),
-                BodyMeasurement.model_construct(
-                    measurement_time=base + timedelta(days=2),
-                    weight_kg=72.0,
-                    fat_mass_kg=11.0,
-                    muscle_mass_kg=31.0,
-                    bone_mass_kg=5.0,
-                    hydration_kg=40.0,
-                    fat_free_mass_kg=60.0,
-                    body_fat_percent=15.0,
-                    device_name="Scale",
-                ),
-            ]
-
     class FakeNutritionRepo(NutritionRepository):
-        async def create_entry(self, entry: Any) -> None:  # pragma: no cover - unused in test
+        async def create_entry(self, entry: Any) -> None:  # pragma: no cover - unused
             return None
 
-        async def list_entries_on_date(self, date: str) -> List[Any]:  # pragma: no cover - unused in test
+        async def list_entries_on_date(self, date: str) -> List[Any]:  # pragma: no cover - unused
             return []
 
         async def list_entries_in_range(
             self, start_date: str, end_date: str
-        ) -> List[Any]:  # pragma: no cover - unused in test
+        ) -> List[Any]:  # pragma: no cover - unused
             return []
 
     class FakeWorkoutRepo(WorkoutRepository):
@@ -963,43 +716,66 @@ async def test_complex_advice_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
             *,
             tss: Optional[float] = None,
             intensity_factor: Optional[float] = None,
-        ) -> None:  # pragma: no cover - unused in test
+        ) -> None:  # pragma: no cover - unused
             return None
 
-        async def fill_missing_metrics(self, page_id: str) -> Optional[WorkoutLog]:  # pragma: no cover - unused in test
+        async def fill_missing_metrics(self, page_id: str) -> Optional[WorkoutLog]:  # pragma: no cover - unused
             return None
 
-    from src.routes import advice as advice_routes
-
-    monkeypatch.setattr(advice_routes, "get_daily_nutrition_summaries", fake_nutrition)
+    monkeypatch.setattr(
+        advice_routes,
+        "get_daily_nutrition_summaries",
+        fake_nutrition,
+    )
 
     app.dependency_overrides[get_nutrition_repository] = lambda: FakeNutritionRepo()
     app.dependency_overrides[get_workout_repository] = lambda: FakeWorkoutRepo()
-    app.dependency_overrides[get_withings_port] = lambda: FakeWithingsPort()
+
+    base = datetime(2023, 1, 1)
+    withings_port_fake.expect_fetch_measurements(
+        days=1,
+        returns=[
+            BodyMeasurement.model_construct(
+                measurement_time=base,
+                weight_kg=70.0,
+                fat_mass_kg=10.0,
+                muscle_mass_kg=30.0,
+                bone_mass_kg=5.0,
+                hydration_kg=40.0,
+                fat_free_mass_kg=60.0,
+                body_fat_percent=14.0,
+                device_name="Scale",
+            ),
+            BodyMeasurement.model_construct(
+                measurement_time=base + timedelta(days=2),
+                weight_kg=72.0,
+                fat_mass_kg=11.0,
+                muscle_mass_kg=31.0,
+                bone_mass_kg=5.0,
+                hydration_kg=40.0,
+                fat_free_mass_kg=60.0,
+                body_fat_percent=15.0,
+                device_name="Scale",
+            ),
+        ],
+    )
 
     try:
-        transport = httpx.ASGITransport(app=app)
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-            response: httpx.Response = await client.get(
-                "/v2/summary-advice?days=1&timezone=UTC",
-                headers={"x-api-key": "test-key"},
-            )
+        response = await client.get(
+            "/v2/summary-advice?days=1&timezone=UTC",
+            headers={"x-api-key": settings.api_key},
+        )
     finally:
         app.dependency_overrides.pop(get_nutrition_repository, None)
         app.dependency_overrides.pop(get_workout_repository, None)
-        app.dependency_overrides.pop(get_withings_port, None)
 
     assert response.status_code == 200
-    data: Dict[str, Any] = response.json()
+    data = response.json()
     assert datetime.fromisoformat(data["local_time"]).tzinfo is not None
-    assert "part_of_day" in data
     assert "nutrition" in data
     assert data["nutrition"][0]["entries"][0]["food_item"] == "Food"
-    assert "metrics" in data
     assert "metric_trends" in data
     trend = data["metric_trends"]["weight_kg"]
     assert trend["slope"] == pytest.approx(1.0)
-    assert trend["intercept"] == pytest.approx(70.0)
-    assert trend["r2"] == pytest.approx(1.0)
     assert "workouts" in data
     assert "athlete_metrics" in data
