@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BodyMeasurementAverages(BaseModel):
@@ -50,8 +50,8 @@ class BodyMeasurement(BaseModel):
         None, description="7-day moving averages for the measurement metrics"
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "measurement_time": "2025-08-09T08:01:06",
                 "weight_kg": 68.816,
@@ -64,6 +64,7 @@ class BodyMeasurement(BaseModel):
                 "device_name": "Withings Body+",
             }
         }
+    )
 
 
 class LinearRegressionResult(BaseModel):
