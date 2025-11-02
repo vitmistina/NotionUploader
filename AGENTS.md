@@ -9,7 +9,7 @@
 - Always work inside a project-local virtual environment when installing or upgrading dependencies:
   ```bash
   python -m venv .venv
-  source .venv/bin/activate
+  source .venv/Scripts/activate
   ```
 - Run the test suite before committing changes:
   ```bash
