@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.notion.infrastructure.workout_repository import NotionWorkoutRepository
+from src.notion.infrastructure.workout_repository import NotionWorkoutAdapter
 from src.settings import Settings
 
 from tests.builders import (
@@ -51,7 +51,7 @@ async def test_fetch_workouts_includes_minimal_entries(
         ]
     )
 
-    repository = NotionWorkoutRepository(settings=settings, client=notion_workout_fake)
+    repository = NotionWorkoutAdapter(settings=settings, client=notion_workout_fake)
 
     workouts = await repository.list_recent_workouts(7)
 
@@ -92,7 +92,7 @@ async def test_list_recent_workouts_backfills_metrics(
         ]
     )
 
-    repository = NotionWorkoutRepository(settings=settings, client=notion_workout_fake)
+    repository = NotionWorkoutAdapter(settings=settings, client=notion_workout_fake)
 
     workouts = await repository.list_recent_workouts(7)
 
@@ -131,7 +131,7 @@ async def test_fill_missing_metrics_updates_notion(
         ]
     )
 
-    repository = NotionWorkoutRepository(settings=settings, client=notion_workout_fake)
+    repository = NotionWorkoutAdapter(settings=settings, client=notion_workout_fake)
 
     updated = await repository.fill_missing_metrics("page-fill")
 

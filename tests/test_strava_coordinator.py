@@ -13,7 +13,7 @@ from src.notion.application.ports import WorkoutRepository
 from src.settings import Settings
 from src.strava import StravaActivityCoordinator
 from src.strava.domain.metrics import compute_activity_metrics
-from src.strava.infrastructure.client import StravaClient
+from src.strava.infrastructure.client import StravaClientAdapter
 
 
 class DummyRedis:
@@ -90,7 +90,7 @@ async def test_strava_client_fetches_activity() -> None:
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as client:
-        strava_client = StravaClient(client, redis, settings)
+        strava_client = StravaClientAdapter(client, redis, settings)
         payload = await strava_client.get_activity(1)
 
     assert payload["id"] == 1

@@ -6,10 +6,8 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from platform import Settings, get_settings
-from .strava import (
-    StravaActivityCoordinator,
-    get_strava_activity_coordinator,
-)
+from .platform.wiring import provide_strava_activity_coordinator
+from .strava import StravaActivityCoordinator
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +31,9 @@ async def verify_subscription(
 @webhook_router.post("/strava-webhook", include_in_schema=False)
 async def strava_event(
     request: Request,
-    service: StravaActivityCoordinator = Depends(get_strava_activity_coordinator),
+    service: StravaActivityCoordinator = Depends(
+        provide_strava_activity_coordinator
+    ),
 ) -> dict[str, str]:
     body = await request.body()
 

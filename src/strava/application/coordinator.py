@@ -3,18 +3,13 @@ from __future__ import annotations
 import base64
 import gzip
 import json
-from typing import Any, AsyncIterator
+from typing import Any
 
-import httpx
-from fastapi import Depends, HTTPException
+from fastapi import HTTPException
 
 from ...models import MetricResults, StravaActivity
 from ...notion.application.ports import WorkoutRepository
-from ...notion.infrastructure.workout_repository import get_workout_repository
-from ...services.redis import RedisClient, get_redis
-from ...settings import Settings, get_settings
 from ..domain.metrics import compute_activity_metrics
-from ..infrastructure.client import StravaClient
 from .ports import StravaAuthError, StravaClientPort
 
 
@@ -68,19 +63,7 @@ class StravaActivityCoordinator:
         await self.persist_activity(activity, metrics)
 
 
-async def get_strava_activity_coordinator(
-    redis: RedisClient = Depends(get_redis),
-    settings: Settings = Depends(get_settings),
-    workout_repository: WorkoutRepository = Depends(get_workout_repository),
-) -> AsyncIterator[StravaActivityCoordinator]:
-    async with httpx.AsyncClient() as http_client:
-        client = StravaClient(http_client=http_client, redis=redis, settings=settings)
-        coordinator = StravaActivityCoordinator(client, workout_repository)
-        yield coordinator
-
-
 __all__ = [
     "StravaActivityCoordinator",
     "compute_activity_metrics",
-    "get_strava_activity_coordinator",
 ]

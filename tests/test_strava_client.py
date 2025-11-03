@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.settings import Settings
 from src.strava.application.ports import StravaAuthError
-from src.strava.infrastructure.client import StravaClient
+from src.strava.infrastructure.client import StravaClientAdapter
 
 from tests.builders import make_strava_token_response
 from tests.conftest import RedisFake
@@ -55,7 +55,7 @@ async def test_strava_client_refreshes_access_token_on_401(
         return httpx.Response(200, json={"id": 42, "name": "Morning Ride"})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
-        strava_client = StravaClient(http_client, redis_fake, settings)
+        strava_client = StravaClientAdapter(http_client, redis_fake, settings)
         activity = await strava_client.get_activity(42)
 
     assert activity["id"] == 42
@@ -107,7 +107,7 @@ async def test_strava_refresh_access_token_failure_modes(
     transport_handler = handler or (lambda _: httpx.Response(204))
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(transport_handler)) as http_client:
-        strava_client = StravaClient(http_client, redis_fake, settings)
+        strava_client = StravaClientAdapter(http_client, redis_fake, settings)
         with pytest.raises(StravaAuthError):
             await strava_client._refresh_access_token()
 
@@ -134,7 +134,7 @@ async def test_strava_refresh_access_token_without_expires_sets_without_ttl(
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
-        strava_client = StravaClient(http_client, redis_fake, settings)
+        strava_client = StravaClientAdapter(http_client, redis_fake, settings)
         token = await strava_client._refresh_access_token()
 
     assert token == "new"
