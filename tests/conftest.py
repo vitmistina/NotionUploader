@@ -25,6 +25,11 @@ from src.strava import get_strava_activity_coordinator
 from src.withings.application.ports import WithingsMeasurementsPort
 from src.withings.infrastructure import get_withings_port
 
+from tests.fakes import NotionWorkoutFake
+
+
+_MISSING = object()
+
 
 class RedisFake(RedisClient):
     """In-memory Redis double that records interactions."""
@@ -32,9 +37,10 @@ class RedisFake(RedisClient):
     def __init__(self) -> None:
         self.store: Dict[str, str] = {}
         self._expected_gets: list[tuple[str | None, Optional[str]]] = []
-        self._expected_sets: list[tuple[str | None, Optional[str], Optional[int]]] = []
+        self._expected_sets: list[tuple[str | None, Optional[str], object]] = []
         self._last_get: str | None = None
         self._last_set: tuple[str, str, Optional[int]] | None = None
+        self.expirations: Dict[str, Optional[int]] = {}
 
     def expect_get(self, key: str | None = None, *, returns: Optional[str] = None) -> "RedisFake":
         """Queue an expected ``get`` call and optional return value."""
@@ -47,7 +53,7 @@ class RedisFake(RedisClient):
         key: str | None = None,
         value: Optional[str] = None,
         *,
-        ex: Optional[int] = None,
+        ex: object = _MISSING,
     ) -> "RedisFake":
         """Queue an expected ``set`` call."""
 
@@ -99,11 +105,12 @@ class RedisFake(RedisClient):
                 raise AssertionError(
                     f"Expected set value {expected_value!r}, saw {value!r}"
                 )
-            if expected_ex is not None and expected_ex != ex:
+            if expected_ex is not _MISSING and expected_ex != ex:
                 raise AssertionError(
                     f"Expected set expiration {expected_ex!r}, saw {ex!r}"
                 )
         self.store[key] = value
+        self.expirations[key] = ex
 
 
 @dataclass
@@ -396,6 +403,13 @@ def notion_api_stub() -> NotionAPIStub:
 @pytest.fixture
 def withings_port_fake() -> WithingsPortFake:
     return WithingsPortFake()
+
+
+@pytest.fixture
+def notion_workout_fake(settings: Settings) -> NotionWorkoutFake:
+    """Preconfigured Notion fake specialised for workout repository tests."""
+
+    return NotionWorkoutFake(settings)
 
 
 @pytest.fixture
