@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from src.settings import Settings
+from src.platform.config import Settings
 from tests.api.helpers import encode_signed_strava_event, make_strava_event
 from tests.conftest import StravaCoordinatorSpy
 

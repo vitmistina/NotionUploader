@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import httpx
 import pytest
+from fastapi import FastAPI
 
 from src.application.workouts import WorkoutNotFoundError
+from src.platform.config import Settings
 from src.platform.wiring import get_sync_workout_metrics_use_case
-from src.settings import Settings
 from tests.conftest import NotionAPIStub
 
 pytestmark = pytest.mark.asyncio
@@ -86,7 +87,7 @@ class _SyncUseCaseStub:
 
 
 async def test_sync_workout_metrics_not_found(
-    client: httpx.AsyncClient, app: "FastAPI", settings: Settings
+    client: httpx.AsyncClient, app: FastAPI, settings: Settings
 ) -> None:
     """Translates ``WorkoutNotFoundError`` to a 404 response."""
 

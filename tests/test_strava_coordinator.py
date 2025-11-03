@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.models import MetricResults, StravaActivity
 from src.notion.application.ports import WorkoutRepository
-from src.settings import Settings
+from src.platform.config import Settings
 from src.strava import StravaActivityCoordinator
 from src.strava.domain.metrics import compute_activity_metrics
 from src.strava.infrastructure.client import StravaClientAdapter

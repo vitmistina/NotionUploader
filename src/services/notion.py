@@ -5,7 +5,7 @@ from typing import Any, Dict
 import httpx
 from fastapi import Depends, HTTPException
 
-from ..settings import Settings, get_settings
+from ..platform.config import Settings, get_settings
 from .interfaces import NotionAPI
 
 

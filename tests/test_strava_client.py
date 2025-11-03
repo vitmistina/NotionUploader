@@ -12,7 +12,7 @@ import pytest
 # Ensure repository root on path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.settings import Settings
+from src.platform.config import Settings
 from src.strava.application.ports import StravaAuthError
 from src.strava.infrastructure.client import StravaClientAdapter
 

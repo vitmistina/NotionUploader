@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from src.notion.infrastructure.workout_repository import NotionWorkoutAdapter
-from src.settings import Settings
+from src.platform.config import Settings
 
 from tests.builders import (
     make_notion_profile,

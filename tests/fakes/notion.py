@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Iterable, List, Tuple
 
 from src.services.interfaces import NotionAPI
-from src.settings import Settings
+from src.platform.config import Settings
 
 
 class NotionWorkoutFake(NotionAPI):

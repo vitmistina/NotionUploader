@@ -17,9 +17,9 @@ for name in dir(_stdlib_platform):
     if not name.startswith("_") and name not in globals():
         globals()[name] = getattr(_stdlib_platform, name)
 
-from .config import Settings, get_settings  # noqa: E402
-from .security import api_key_header, verify_api_key  # noqa: E402
-from .clients import RedisClient, get_redis  # noqa: E402
+from .config import Settings, get_settings  # noqa: E402,F401
+from .security import api_key_header, verify_api_key  # noqa: E402,F401
+from .clients import RedisClient, get_redis  # noqa: E402,F401
 
 config = importlib.import_module("src.platform.config")
 security = importlib.import_module("src.platform.security")

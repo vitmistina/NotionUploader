@@ -8,8 +8,8 @@ from typing import List, Sequence
 
 import httpx
 
-from ...services.redis import RedisClient
-from ...settings import Settings
+from ...platform.clients import RedisClient
+from ...platform.config import Settings
 from ...models.body import BodyMeasurement
 from ..application.ports import WithingsMeasurementsPort
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from src.settings import Settings
+from src.platform.config import Settings
 
 pytestmark = pytest.mark.asyncio
 

@@ -1,4 +1,4 @@
 # Changelog
 
 ## Unreleased
-- Deprecated `src/metrics.py` in favor of the domain-level modules and documented its upcoming removal.
+- Removed backward-compatibility shims (`src/metrics.py`, `src/nutrition.py`, `src/settings.py`, `src/security.py`, `src/services/redis.py`) now that all imports resolve through `src.platform` and the domain packages.

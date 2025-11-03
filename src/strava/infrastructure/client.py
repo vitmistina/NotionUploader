@@ -4,8 +4,8 @@ from typing import Any, Optional
 
 import httpx
 
-from ...services.redis import RedisClient
-from ...settings import Settings
+from ...platform.clients import RedisClient
+from ...platform.config import Settings
 from ..application.ports import StravaAuthError, StravaClientPort
 
 
