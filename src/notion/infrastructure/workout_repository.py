@@ -3,17 +3,14 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import Depends
-
 from ...domain.body_metrics.hr import estimate_if_tss_from_hr
 from ...models.workout import WorkoutLog
 from ...services.interfaces import NotionAPI
-from ...services.notion import get_notion_client
-from ...settings import Settings, get_settings
+from ...settings import Settings
 from ..application.ports import WorkoutRepository
 
 
-class NotionWorkoutRepository(WorkoutRepository):
+class NotionWorkoutAdapter(WorkoutRepository):
     """Concrete Notion adapter for workout-related operations."""
 
     def __init__(self, *, settings: Settings, client: NotionAPI) -> None:
@@ -287,10 +284,9 @@ class NotionWorkoutRepository(WorkoutRepository):
         return workout
 
 
-def get_workout_repository(
-    settings: Settings = Depends(get_settings),
-    client: NotionAPI = Depends(get_notion_client),
+def create_notion_workout_adapter(
+    *, settings: Settings, client: NotionAPI
 ) -> WorkoutRepository:
-    """FastAPI dependency providing the concrete workout repository."""
+    """Create a Notion workout adapter without relying on FastAPI wiring."""
 
-    return NotionWorkoutRepository(settings=settings, client=client)
+    return NotionWorkoutAdapter(settings=settings, client=client)

@@ -7,15 +7,14 @@ from datetime import datetime
 from typing import List, Sequence
 
 import httpx
-from fastapi import Depends
 
-from ...services.redis import RedisClient, get_redis
-from ...settings import Settings, get_settings
+from ...services.redis import RedisClient
+from ...settings import Settings
 from ...models.body import BodyMeasurement
 from ..application.ports import WithingsMeasurementsPort
 
 
-class WithingsAPIClient(WithingsMeasurementsPort):
+class WithingsMeasurementsAdapter(WithingsMeasurementsPort):
     """Interact with the Withings API using tokens stored in Redis."""
 
     def __init__(self, redis: RedisClient, settings: Settings) -> None:
@@ -133,10 +132,9 @@ class WithingsAPIClient(WithingsMeasurementsPort):
         return measurements
 
 
-def get_withings_port(
-    redis: RedisClient = Depends(get_redis),
-    settings: Settings = Depends(get_settings),
+def create_withings_measurements_adapter(
+    *, redis: RedisClient, settings: Settings
 ) -> WithingsMeasurementsPort:
-    """Dependency injector for the Withings measurements port."""
+    """Create a Withings measurements adapter without FastAPI dependencies."""
 
-    return WithingsAPIClient(redis=redis, settings=settings)
+    return WithingsMeasurementsAdapter(redis=redis, settings=settings)

@@ -1,5 +1,8 @@
 """Infrastructure helpers for Withings integration."""
 
-from .client import WithingsAPIClient, get_withings_port
+from .client import (
+    WithingsMeasurementsAdapter,
+    create_withings_measurements_adapter,
+)
 
-__all__ = ["WithingsAPIClient", "get_withings_port"]
+__all__ = ["WithingsMeasurementsAdapter", "create_withings_measurements_adapter"]

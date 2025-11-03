@@ -9,7 +9,7 @@ from ...settings import Settings
 from ..application.ports import StravaAuthError, StravaClientPort
 
 
-class StravaClient(StravaClientPort):
+class StravaClientAdapter(StravaClientPort):
     """HTTP client for Strava that manages OAuth token refresh."""
 
     def __init__(
@@ -90,3 +90,11 @@ class StravaClient(StravaClientPort):
             )
 
         return access_token
+
+
+def create_strava_client_adapter(
+    *, http_client: httpx.AsyncClient, redis: RedisClient, settings: Settings
+) -> StravaClientPort:
+    """Create a Strava client adapter without FastAPI dependencies."""
+
+    return StravaClientAdapter(http_client=http_client, redis=redis, settings=settings)

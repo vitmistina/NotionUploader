@@ -21,9 +21,11 @@ from src.services.interfaces import NotionAPI
 from src.services.notion import get_notion_client
 from src.services.redis import RedisClient, get_redis
 from src.settings import Settings, get_settings
-from src.strava import get_strava_activity_coordinator
+from src.platform.wiring import (
+    provide_strava_activity_coordinator,
+    provide_withings_port,
+)
 from src.withings.application.ports import WithingsMeasurementsPort
-from src.withings.infrastructure import get_withings_port
 
 from tests.fakes import NotionWorkoutFake
 
@@ -432,8 +434,8 @@ def app(
         get_settings: lambda: settings,
         get_redis: lambda: redis_fake,
         get_notion_client: lambda: notion_api_stub,
-        get_withings_port: lambda: withings_port_fake,
-        get_strava_activity_coordinator: lambda: strava_coordinator_spy,
+        provide_withings_port: lambda: withings_port_fake,
+        provide_strava_activity_coordinator: lambda: strava_coordinator_spy,
     }
     app.dependency_overrides.update(overrides)
     try:

@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.models.body import BodyMeasurement
 from src.settings import Settings
-from src.withings.infrastructure.client import WithingsAPIClient
+from src.withings.infrastructure.client import WithingsMeasurementsAdapter
 
 
 class RecordingRedis:
@@ -63,7 +63,7 @@ async def test_refresh_access_token_success(respx_mock: respx.Router) -> None:
         )
     )
 
-    client = WithingsAPIClient(redis=redis, settings=TEST_SETTINGS)
+    client = WithingsMeasurementsAdapter(redis=redis, settings=TEST_SETTINGS)
     token = await client.refresh_access_token()
 
     assert token == "new-access"
@@ -76,7 +76,7 @@ async def test_refresh_access_token_success(respx_mock: respx.Router) -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_refresh_access_token_without_refresh_token(respx_mock: respx.Router) -> None:
-    client = WithingsAPIClient(redis=RecordingRedis(), settings=TEST_SETTINGS)
+    client = WithingsMeasurementsAdapter(redis=RecordingRedis(), settings=TEST_SETTINGS)
 
     with pytest.raises(ValueError):
         await client.refresh_access_token()
@@ -91,7 +91,7 @@ async def test_refresh_access_token_http_error(respx_mock: respx.Router) -> None
         return_value=httpx.Response(500, json={"status": 42})
     )
 
-    client = WithingsAPIClient(redis=redis, settings=TEST_SETTINGS)
+    client = WithingsMeasurementsAdapter(redis=redis, settings=TEST_SETTINGS)
 
     with pytest.raises(RuntimeError):
         await client.refresh_access_token()
@@ -109,7 +109,7 @@ async def test_refresh_access_token_error_status(respx_mock: respx.Router) -> No
         )
     )
 
-    client = WithingsAPIClient(redis=redis, settings=TEST_SETTINGS)
+    client = WithingsMeasurementsAdapter(redis=redis, settings=TEST_SETTINGS)
 
     with pytest.raises(RuntimeError):
         await client.refresh_access_token()
@@ -124,7 +124,7 @@ async def test_refresh_access_token_missing_access_token(respx_mock: respx.Route
         return_value=httpx.Response(200, json={"status": 0, "body": {}})
     )
 
-    client = WithingsAPIClient(redis=redis, settings=TEST_SETTINGS)
+    client = WithingsMeasurementsAdapter(redis=redis, settings=TEST_SETTINGS)
 
     with pytest.raises(RuntimeError):
         await client.refresh_access_token()
@@ -142,7 +142,7 @@ async def test_refresh_access_token_without_expires_sets_token(respx_mock: respx
         )
     )
 
-    client = WithingsAPIClient(redis=redis, settings=TEST_SETTINGS)
+    client = WithingsMeasurementsAdapter(redis=redis, settings=TEST_SETTINGS)
     token = await client.refresh_access_token()
 
     assert token == "token"
@@ -175,7 +175,7 @@ async def test_fetch_measurements_success(respx_mock: respx.Router) -> None:
         )
     )
 
-    client = WithingsAPIClient(redis=redis, settings=TEST_SETTINGS)
+    client = WithingsMeasurementsAdapter(redis=redis, settings=TEST_SETTINGS)
     measurements = await client.fetch_measurements(days=1)
 
     assert len(measurements) == 1
@@ -214,7 +214,7 @@ async def test_fetch_measurements_refreshes_on_401(respx_mock: respx.Router) -> 
         )
     )
 
-    client = WithingsAPIClient(redis=redis, settings=TEST_SETTINGS)
+    client = WithingsMeasurementsAdapter(redis=redis, settings=TEST_SETTINGS)
     measurements = await client.fetch_measurements(days=1)
 
     assert measurements == []
@@ -231,7 +231,7 @@ async def test_fetch_measurements_raises_on_api_error(respx_mock: respx.Router) 
         return_value=httpx.Response(200, json={"status": 42, "error": "boom"})
     )
 
-    client = WithingsAPIClient(redis=redis, settings=TEST_SETTINGS)
+    client = WithingsMeasurementsAdapter(redis=redis, settings=TEST_SETTINGS)
 
     with pytest.raises(RuntimeError):
         await client.fetch_measurements(days=1)

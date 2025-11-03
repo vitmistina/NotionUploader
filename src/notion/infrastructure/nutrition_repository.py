@@ -2,16 +2,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import Depends
-
 from ...models.nutrition import NutritionEntry
 from ...services.interfaces import NotionAPI
-from ...services.notion import get_notion_client
-from ...settings import Settings, get_settings
+from ...settings import Settings
 from ..application.ports import NutritionRepository
 
 
-class NotionNutritionRepository(NutritionRepository):
+class NotionNutritionAdapter(NutritionRepository):
     """Concrete Notion adapter handling nutrition persistence and queries."""
 
     def __init__(self, *, settings: Settings, client: NotionAPI) -> None:
@@ -107,10 +104,9 @@ class NotionNutritionRepository(NutritionRepository):
             return None
 
 
-def get_nutrition_repository(
-    settings: Settings = Depends(get_settings),
-    client: NotionAPI = Depends(get_notion_client),
+def create_notion_nutrition_adapter(
+    *, settings: Settings, client: NotionAPI
 ) -> NutritionRepository:
-    """FastAPI dependency providing the concrete nutrition repository."""
+    """Create a Notion nutrition adapter without relying on FastAPI wiring."""
 
-    return NotionNutritionRepository(settings=settings, client=client)
+    return NotionNutritionAdapter(settings=settings, client=client)
