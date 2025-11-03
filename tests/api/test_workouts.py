@@ -5,6 +5,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
+from src.application.workouts import WorkoutNotFoundError
+from src.platform.wiring import get_sync_workout_metrics_use_case
 from src.settings import Settings
 from tests.conftest import NotionAPIStub
 
@@ -69,3 +71,34 @@ async def test_get_workout_logs(
     assert data[0]["tss"] == 50.0
     assert data[0]["intensity_factor"] == 0.85
     assert data[0]["notes"] == "Great ride"
+
+
+class _SyncUseCaseStub:
+    def __init__(self, *, raises: bool = False) -> None:
+        self.raises = raises
+        self.calls: list[str] = []
+
+    async def __call__(self, page_id: str):  # type: ignore[override]
+        self.calls.append(page_id)
+        if self.raises:
+            raise WorkoutNotFoundError("missing")
+        return {"status": "updated"}
+
+
+async def test_sync_workout_metrics_not_found(
+    client: httpx.AsyncClient, app: "FastAPI", settings: Settings
+) -> None:
+    """Translates ``WorkoutNotFoundError`` to a 404 response."""
+
+    use_case = _SyncUseCaseStub(raises=True)
+    app.dependency_overrides[get_sync_workout_metrics_use_case] = lambda: use_case
+
+    response = await client.post(
+        "/v2/workout-logs/page123/sync",
+        headers={"x-api-key": settings.api_key},
+    )
+
+    assert response.status_code == 404
+    assert use_case.calls == ["page123"]
+
+    app.dependency_overrides.pop(get_sync_workout_metrics_use_case, None)
