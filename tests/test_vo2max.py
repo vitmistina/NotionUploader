@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from src.metrics import vo2max_minutes
+from src.domain.body_metrics.vo2 import vo2max_minutes
 
 
 def make_split(

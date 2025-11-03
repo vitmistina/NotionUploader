@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
 
-from ..metrics import linear_regression
+from ..domain.body_metrics.regression import linear_regression
 from ..models.body import BodyMeasurementsResponse, BodyMetricTrends
 from ..withings.application import WithingsMeasurementsPort, fetch_withings_measurements
 from ..withings.infrastructure import get_withings_port

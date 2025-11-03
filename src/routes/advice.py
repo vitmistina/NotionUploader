@@ -5,11 +5,11 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query
 
-from ..metrics import linear_regression
+from ..domain.body_metrics.regression import linear_regression
 from ..models.advice import SummaryAdvice
 from ..models.body import BodyMetricTrends
 from ..models.time import get_local_time
-from ..nutrition import get_daily_nutrition_summaries
+from ..domain.nutrition.summaries import get_daily_nutrition_summaries
 from ..withings.application import WithingsMeasurementsPort, fetch_withings_measurements
 from ..withings.infrastructure import get_withings_port
 from ..notion.application.ports import NutritionRepository, WorkoutRepository

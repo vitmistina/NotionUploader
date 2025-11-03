@@ -4,7 +4,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ..metrics import estimate_if_tss_from_hr
+from ..domain.body_metrics.hr import estimate_if_tss_from_hr
 from ..models.responses import OperationStatus
 from ..models.workout import (
     ManualWorkoutSubmission,

@@ -7,12 +7,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.metrics import (
-    add_moving_average,
-    estimate_if_tss_from_hr,
-    hr_drift_from_splits,
-    linear_regression,
-)
+from src.domain.body_metrics.hr import estimate_if_tss_from_hr, hr_drift_from_splits
+from src.domain.body_metrics.moving_average import add_moving_average
+from src.domain.body_metrics.regression import linear_regression
 from src.models.body import BodyMeasurement
 
 

@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import Depends
 
-from ...metrics import estimate_if_tss_from_hr
+from ...domain.body_metrics.hr import estimate_if_tss_from_hr
 from ...models.workout import WorkoutLog
 from ...services.interfaces import NotionAPI
 from ...services.notion import get_notion_client
