@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List
 
-from ...metrics import add_moving_average
+from ...domain.body_metrics.moving_average import add_moving_average
 from ...models.body import BodyMeasurement
 from .ports import WithingsMeasurementsPort
 

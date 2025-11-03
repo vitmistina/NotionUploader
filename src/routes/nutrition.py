@@ -14,7 +14,8 @@ from ..models.responses import OperationStatus
 from ..models.time import get_local_time
 from ..notion.application.ports import NutritionRepository
 from ..notion.infrastructure.nutrition_repository import get_nutrition_repository
-from ..nutrition import build_daily_summary, get_daily_nutrition_summaries
+from ..domain.nutrition.summary import build_daily_summary
+from ..domain.nutrition.summaries import get_daily_nutrition_summaries
 from .utils import timezone_query
 
 router: APIRouter = APIRouter()

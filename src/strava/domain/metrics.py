@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from ...metrics import hr_drift_from_splits, vo2max_minutes
+from ...domain.body_metrics.hr import hr_drift_from_splits
+from ...domain.body_metrics.vo2 import vo2max_minutes
 from ...models import MetricResults, StravaActivity
 
 
