@@ -988,6 +988,18 @@
       },
       "NutritionEntry": {
         "properties": {
+          "page_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Id",
+            "description": "Unique identifier of the corresponding Notion page"
+          },
           "food_item": {
             "type": "string",
             "title": "Food Item"
@@ -1200,6 +1212,11 @@
       },
       "WorkoutLog": {
         "properties": {
+          "page_id": {
+            "type": "string",
+            "title": "Page Id",
+            "description": "Unique identifier of the Notion page"
+          },
           "name": {
             "type": "string",
             "title": "Name"
@@ -1359,6 +1376,7 @@
         },
         "type": "object",
         "required": [
+          "page_id",
           "name",
           "date",
           "duration_s",

@@ -33,6 +33,7 @@ def make_nutrition_page(**overrides: Any) -> Dict[str, Any]:
     """Return a Notion page payload resembling a stored nutrition entry."""
 
     page: Dict[str, Any] = {
+        "id": "page-apple",
         "properties": {
             "Food Item": {"title": [{"text": {"content": "Apple"}}]},
             "Date": {"date": {"start": "2023-01-01"}},
@@ -79,6 +80,7 @@ def make_nutrition_page(**overrides: Any) -> Dict[str, Any]:
                 case _:
                     properties[value] = {"number": override_value}
 
+    page["id"] = overrides.pop("id", page["id"])
     page.update(overrides)
     return page
 

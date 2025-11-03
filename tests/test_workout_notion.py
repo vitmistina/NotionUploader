@@ -118,6 +118,7 @@ async def test_fetch_workouts_includes_minimal_entries() -> None:
     names = [w.name for w in workouts]
     assert "Outdoor Run" in names
     assert "PT in gym" in names
+    assert {w.page_id for w in workouts} == {"page-1", "page-2"}
 
 
 @pytest.mark.asyncio
@@ -157,6 +158,7 @@ async def test_list_recent_workouts_backfills_metrics() -> None:
     assert workouts[0].type == "Gym"
     assert workouts[0].tss is not None
     assert workouts[0].intensity_factor is not None
+    assert workouts[0].page_id == "page-backfill"
 
 
 @pytest.mark.asyncio
@@ -194,6 +196,7 @@ async def test_fill_missing_metrics_updates_notion() -> None:
     updated = await repository.fill_missing_metrics("page-fill")
 
     assert updated is not None
+    assert updated.page_id == "page-fill"
     assert updated.tss is not None
     assert updated.intensity_factor is not None
     assert notion.updated, "Expected update call to be recorded"

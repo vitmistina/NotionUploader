@@ -78,6 +78,7 @@ class StravaEvent(BaseModel):
 class WorkoutLog(BaseModel):
     """Representation of a workout stored in Notion for LLM consumption."""
 
+    page_id: str = Field(..., description="Unique identifier of the Notion page")
     name: str
     date: str
     duration_s: float

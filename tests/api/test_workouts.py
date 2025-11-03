@@ -17,6 +17,7 @@ async def test_get_workout_logs(
     """Returns workouts enriched with athlete profile metrics."""
 
     workout_page = {
+        "id": "workout-page",
         "properties": {
             "Name": {"title": [{"text": {"content": "Run"}}]},
             "Date": {"date": {"start": "2023-01-01"}},
@@ -62,6 +63,7 @@ async def test_get_workout_logs(
     assert response.status_code == 200
     data = response.json()
 
+    assert data[0]["page_id"] == "workout-page"
     assert data[0]["name"] == "Run"
     assert data[0]["hr_drift_percent"] == 5.0
     assert data[0]["tss"] == 50.0

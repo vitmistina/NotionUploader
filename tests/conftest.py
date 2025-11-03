@@ -6,7 +6,7 @@ import asyncio
 import sys
 from collections.abc import Iterator
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -445,6 +445,8 @@ class FrozenClock:
     """Mutable clock used by the ``freeze_time`` fixture."""
 
     def __init__(self, current: datetime) -> None:
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
         self._current = current
 
     @property
@@ -452,6 +454,8 @@ class FrozenClock:
         return self._current
 
     def set(self, new_value: datetime) -> None:
+        if new_value.tzinfo is None:
+            new_value = new_value.replace(tzinfo=timezone.utc)
         self._current = new_value
 
     def advance(self, **delta: Any) -> None:
@@ -465,16 +469,18 @@ class FrozenClock:
 def freeze_time(monkeypatch: pytest.MonkeyPatch) -> FrozenClock:
     """Freeze ``datetime``/``time`` helpers for deterministic tests."""
 
-    clock = FrozenClock(datetime(2024, 1, 1, 12, 0, 0))
+    clock = FrozenClock(datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc))
 
     class _FrozenDateTime(datetime):
         @classmethod
         def utcnow(cls) -> datetime:  # type: ignore[override]
-            return clock.current
+            return clock.current.replace(tzinfo=None)
 
         @classmethod
         def now(cls, tz: Any = None) -> datetime:  # type: ignore[override]
-            return clock.current if tz is None else clock.current.replace(tzinfo=tz)
+            if tz is None:
+                return clock.current
+            return clock.current.astimezone(tz)
 
     monkeypatch.setattr(
         "src.notion.infrastructure.workout_repository.datetime", _FrozenDateTime
