@@ -1,7 +1,7 @@
 """Generate an OpenAPI schema file for the FastAPI application."""
 
-from pathlib import Path
 import json
+from pathlib import Path
 
 from src.main import app
 

@@ -30,7 +30,12 @@ class NotionAPI(Protocol):
 class StravaAPI(Protocol):
     """HTTP client interface used for Strava requests."""
 
-    async def get(self, url: str, *, headers: Dict[str, str]) -> httpx.Response:  # pragma: no cover - thin wrapper
+    async def get(
+        self,
+        url: str,
+        *,
+        headers: Dict[str, str],
+    ) -> httpx.Response:  # pragma: no cover - thin wrapper
         """Perform a GET request."""
 
 

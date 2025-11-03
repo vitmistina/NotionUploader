@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 from fastapi import APIRouter, Depends, Query
 
 from ..application.metrics import ListBodyMeasurementsUseCase

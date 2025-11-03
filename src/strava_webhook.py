@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
+from platform import Settings, get_settings
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from platform import Settings, get_settings
 from .platform.wiring import provide_strava_activity_coordinator
 from .strava import StravaActivityCoordinator
 

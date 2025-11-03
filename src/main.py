@@ -1,16 +1,16 @@
 from __future__ import annotations
 
+from platform import verify_api_key
 from typing import Any, Dict
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from .routes.nutrition import router as nutrition_router
-from .routes.metrics import router as metrics_router
-from .routes.workouts import router as workouts_router
 from .routes.advice import router as advice_router
+from .routes.metrics import router as metrics_router
+from .routes.nutrition import router as nutrition_router
 from .routes.strava import router as strava_router
-from platform import verify_api_key
+from .routes.workouts import router as workouts_router
 from .strava_webhook import webhook_router
 
 app: FastAPI = FastAPI(

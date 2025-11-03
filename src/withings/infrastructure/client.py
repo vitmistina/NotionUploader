@@ -1,5 +1,4 @@
 """HTTP-backed implementation of the Withings measurements port."""
-
 from __future__ import annotations
 
 import time
@@ -8,9 +7,9 @@ from typing import List, Sequence
 
 import httpx
 
+from ...models.body import BodyMeasurement
 from ...services.redis import RedisClient
 from ...settings import Settings
-from ...models.body import BodyMeasurement
 from ..application.ports import WithingsMeasurementsPort
 
 
@@ -23,7 +22,6 @@ class WithingsMeasurementsAdapter(WithingsMeasurementsPort):
 
     async def refresh_access_token(self) -> str:
         """Refresh the Withings access token using the stored refresh token."""
-
         refresh_token = self._redis.get("withings_refresh_token")
         if not refresh_token:
             raise ValueError("No Withings refresh token found in Redis")
@@ -72,7 +70,6 @@ class WithingsMeasurementsAdapter(WithingsMeasurementsPort):
 
     async def fetch_measurements(self, days: int) -> Sequence[BodyMeasurement]:
         """Fetch Withings measurements for the provided day range."""
-
         access_token = self._redis.get("withings_access_token")
         if not access_token:
             access_token = await self.refresh_access_token()
@@ -136,5 +133,4 @@ def create_withings_measurements_adapter(
     *, redis: RedisClient, settings: Settings
 ) -> WithingsMeasurementsPort:
     """Create a Withings measurements adapter without FastAPI dependencies."""
-
     return WithingsMeasurementsAdapter(redis=redis, settings=settings)

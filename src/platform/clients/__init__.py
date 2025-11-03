@@ -10,7 +10,6 @@ from ..config import Settings, get_settings
 
 class RedisClient(Protocol):
     """Minimal Redis client interface used by the application."""
-
     def get(self, key: str) -> Optional[str]:
         ...
 
@@ -20,7 +19,6 @@ class RedisClient(Protocol):
 
 def get_redis(settings: Settings = Depends(get_settings)) -> RedisClient:
     """Factory helper that provides a Redis client instance."""
-
     return Redis(
         url=settings.upstash_redis_rest_url,
         token=settings.upstash_redis_rest_token,

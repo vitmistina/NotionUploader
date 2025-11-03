@@ -24,7 +24,6 @@ class StravaClientAdapter(StravaClientPort):
 
     async def get_activity(self, activity_id: int) -> dict[str, Any]:
         """Fetch an activity from Strava, refreshing auth if necessary."""
-
         access_token = await self._ensure_access_token()
         headers = {"Authorization": f"Bearer {access_token}"}
         response = await self._http_client.get(
@@ -96,5 +95,4 @@ def create_strava_client_adapter(
     *, http_client: httpx.AsyncClient, redis: RedisClient, settings: Settings
 ) -> StravaClientPort:
     """Create a Strava client adapter without FastAPI dependencies."""
-
     return StravaClientAdapter(http_client=http_client, redis=redis, settings=settings)

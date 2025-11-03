@@ -205,21 +205,8 @@ class NotionWorkoutAdapter(WorkoutRepository):
             return ""
 
         try:
-            type_value = ""
-            if props.get("Type", {}).get("rich_text"):
-                type_value = props["Type"]["rich_text"][0]["text"]["content"]
-            elif props.get("Type", {}).get("select"):
-                type_value = props["Type"]["select"]["name"]
-
-            notes_value: Optional[str] = None
-            notes_payload = props.get("Notes", {}).get("rich_text")
-            if notes_payload:
-                notes_value = (
-                    notes_payload[0]
-                    .get("text", {})
-                    .get("content")
-                )
-
+            type_value = NotionWorkoutAdapter._extract_workout_type(props)
+            notes_value = NotionWorkoutAdapter._extract_workout_notes(props)
             return WorkoutLog(
                 page_id=str(page.get("id") or ""),
                 name=_get_title("Name"),
@@ -243,6 +230,22 @@ class NotionWorkoutAdapter(WorkoutRepository):
             )
         except Exception:
             return None
+
+    @staticmethod
+    def _extract_workout_type(props: Dict[str, Any]) -> str:
+        type_payload = props.get("Type", {})
+        if rich_text := type_payload.get("rich_text"):
+            return rich_text[0].get("text", {}).get("content", "")
+        if select_payload := type_payload.get("select"):
+            return select_payload.get("name", "")
+        return ""
+
+    @staticmethod
+    def _extract_workout_notes(props: Dict[str, Any]) -> Optional[str]:
+        notes_payload = props.get("Notes", {}).get("rich_text")
+        if not notes_payload:
+            return None
+        return notes_payload[0].get("text", {}).get("content")
 
     @staticmethod
     def _augment_with_estimates(
@@ -288,5 +291,4 @@ def create_notion_workout_adapter(
     *, settings: Settings, client: NotionAPI
 ) -> WorkoutRepository:
     """Create a Notion workout adapter without relying on FastAPI wiring."""
-
     return NotionWorkoutAdapter(settings=settings, client=client)

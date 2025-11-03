@@ -1,0 +1,10 @@
+[importlinter]
+root_package = src
+
+[contract:no-tests-in-src]
+name = Application code must not import the test suite.
+type = forbidden
+source_modules =
+    src
+forbidden_modules =
+    tests

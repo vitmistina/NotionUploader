@@ -4,9 +4,9 @@ from typing import List
 
 from pydantic import BaseModel
 
-from .time import TimeContext
 from .body import BodyMeasurement, BodyMetricTrends
 from .nutrition import DailyNutritionSummaryWithEntries
+from .time import TimeContext
 from .workout import WorkoutLog
 
 

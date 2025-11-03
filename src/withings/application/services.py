@@ -13,6 +13,5 @@ async def fetch_withings_measurements(
     port: WithingsMeasurementsPort, days: int
 ) -> List[BodyMeasurement]:
     """Fetch Withings measurements and enrich them with moving averages."""
-
     measurements = await port.fetch_measurements(days)
     return add_moving_average(list(measurements))
