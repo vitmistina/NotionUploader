@@ -5,7 +5,7 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from .settings import Settings, get_settings
+from platform import Settings, get_settings
 from .strava import (
     StravaActivityCoordinator,
     get_strava_activity_coordinator,
