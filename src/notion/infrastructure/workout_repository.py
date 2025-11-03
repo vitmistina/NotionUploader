@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import Depends
@@ -21,7 +21,9 @@ class NotionWorkoutRepository(WorkoutRepository):
         self._client = client
 
     async def list_recent_workouts(self, days: int) -> List[WorkoutLog]:
-        start = (datetime.utcnow() - timedelta(days=days)).date().isoformat()
+        start = (
+            datetime.now(timezone.utc) - timedelta(days=days)
+        ).date().isoformat()
         payload = {"filter": {"property": "Date", "date": {"on_or_after": start}}}
         response = await self._client.query(self._settings.notion_workout_database_id, payload)
         athlete = await self.fetch_latest_athlete_profile()
@@ -90,7 +92,7 @@ class NotionWorkoutRepository(WorkoutRepository):
         date_only = (
             start_date.split("T")[0]
             if isinstance(start_date, str) and start_date
-            else datetime.utcnow().date().isoformat()
+            else datetime.now(timezone.utc).date().isoformat()
         )
         day_of_week = datetime.fromisoformat(date_only).strftime("%A")
         _ = attachment  # noqa: F841 - Preserve signature compatibility; currently unused.
@@ -222,6 +224,7 @@ class NotionWorkoutRepository(WorkoutRepository):
                 )
 
             return WorkoutLog(
+                page_id=str(page.get("id") or ""),
                 name=_get_title("Name"),
                 date=_get_date("Date"),
                 duration_s=_get_number("Duration [s]"),

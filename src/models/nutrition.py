@@ -8,6 +8,9 @@ from .time import TimeContext
 
 
 class NutritionEntry(BaseModel):
+    page_id: str | None = Field(
+        None, description="Unique identifier of the corresponding Notion page"
+    )
     food_item: str
     date: str
     calories: int

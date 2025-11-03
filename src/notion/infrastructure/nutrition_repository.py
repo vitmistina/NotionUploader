@@ -93,6 +93,7 @@ class NotionNutritionRepository(NutritionRepository):
             meal_type = meal_payload.get("name") if meal_payload else ""
 
             return NutritionEntry(
+                page_id=page.get("id"),
                 food_item=food_item,
                 date=date_value,
                 calories=props.get("Calories", {}).get("number"),

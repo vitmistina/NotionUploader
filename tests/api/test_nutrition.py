@@ -90,6 +90,7 @@ async def test_get_foods_by_date(
     assert len(entries) == 1
     assert_nutrition_entry(
         entries[0],
+        page_id="page-apple",
         food_item="Apple",
         calories=95,
         protein_g=0.5,
