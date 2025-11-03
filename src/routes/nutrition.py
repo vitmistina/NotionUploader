@@ -1,21 +1,19 @@
 from __future__ import annotations
 
-from typing import List
-
 from fastapi import APIRouter, Depends, Path, Query
 
-from ..models.nutrition import (
-    DailyNutritionSummary,
-    DailyNutritionSummaryWithEntries,
-    NutritionEntry,
-    NutritionSummaryResponse,
+from ..application.nutrition import (
+    CreateNutritionEntryUseCase,
+    GetDailyNutritionEntriesUseCase,
+    GetNutritionEntriesByPeriodUseCase,
 )
+from ..models.nutrition import NutritionEntry, NutritionSummaryResponse
 from ..models.responses import OperationStatus
-from ..models.time import get_local_time
-from ..notion.application.ports import NutritionRepository
-from ..notion.infrastructure.nutrition_repository import get_nutrition_repository
-from ..domain.nutrition.summary import build_daily_summary
-from ..domain.nutrition.summaries import get_daily_nutrition_summaries
+from ..platform.wiring import (
+    get_create_nutrition_entry_use_case,
+    get_daily_nutrition_entries_use_case,
+    get_nutrition_entries_by_period_use_case,
+)
 from .utils import timezone_query
 
 router: APIRouter = APIRouter()
@@ -24,10 +22,11 @@ router: APIRouter = APIRouter()
 @router.post("/nutrition-entries", status_code=201, response_model=OperationStatus)
 async def create_nutrition_entry(
     entry: NutritionEntry,
-    repository: NutritionRepository = Depends(get_nutrition_repository),
+    use_case: CreateNutritionEntryUseCase = Depends(
+        get_create_nutrition_entry_use_case
+    ),
 ) -> OperationStatus:
-    await repository.create_entry(entry)
-    return OperationStatus(status="ok")
+    return await use_case(entry)
 
 
 @router.get(
@@ -37,19 +36,11 @@ async def create_nutrition_entry(
 async def list_daily_nutrition_entries(
     date: str = Path(..., description="Date to fetch in YYYY-MM-DD format."),
     timezone: str = timezone_query,
-    repository: NutritionRepository = Depends(get_nutrition_repository),
+    use_case: GetDailyNutritionEntriesUseCase = Depends(
+        get_daily_nutrition_entries_use_case
+    ),
 ) -> NutritionSummaryResponse:
-    entries: List[NutritionEntry] = await repository.list_entries_on_date(date)
-    summary: DailyNutritionSummary = build_daily_summary(date, entries)
-    day_summary = DailyNutritionSummaryWithEntries(
-        **summary.model_dump(), entries=entries
-    )
-    local_time, part = get_local_time(timezone)
-    return NutritionSummaryResponse(
-        days=[day_summary],
-        local_time=local_time,
-        part_of_day=part,
-    )
+    return await use_case(date, timezone)
 
 
 @router.get(
@@ -64,14 +55,8 @@ async def list_nutrition_entries_by_period(
         ..., description="End date (inclusive) in YYYY-MM-DD format.",
     ),
     timezone: str = timezone_query,
-    repository: NutritionRepository = Depends(get_nutrition_repository),
+    use_case: GetNutritionEntriesByPeriodUseCase = Depends(
+        get_nutrition_entries_by_period_use_case
+    ),
 ) -> NutritionSummaryResponse:
-    summaries: List[DailyNutritionSummaryWithEntries] = await get_daily_nutrition_summaries(
-        start_date, end_date, repository
-    )
-    local_time, part = get_local_time(timezone)
-    return NutritionSummaryResponse(
-        days=summaries,
-        local_time=local_time,
-        part_of_day=part,
-    )
+    return await use_case(start_date, end_date, timezone)
