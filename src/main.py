@@ -10,7 +10,7 @@ from .routes.metrics import router as metrics_router
 from .routes.workouts import router as workouts_router
 from .routes.advice import router as advice_router
 from .routes.strava import router as strava_router
-from .security import verify_api_key
+from platform import verify_api_key
 from .strava_webhook import webhook_router
 
 app: FastAPI = FastAPI(
