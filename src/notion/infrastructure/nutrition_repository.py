@@ -108,5 +108,4 @@ def create_notion_nutrition_adapter(
     *, settings: Settings, client: NotionAPI
 ) -> NutritionRepository:
     """Create a Notion nutrition adapter without relying on FastAPI wiring."""
-
     return NotionNutritionAdapter(settings=settings, client=client)

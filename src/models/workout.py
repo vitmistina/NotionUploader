@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
@@ -170,12 +170,10 @@ class ManualWorkoutSubmission(BaseModel):
 
     def duration_seconds(self) -> int:
         """Return the workout duration expressed in seconds."""
-
         return int(round(self.duration_minutes * 60))
 
     def to_notion_detail(self) -> Dict[str, Any]:
         """Convert the submission into the payload expected by Notion storage."""
-
         duration_s = self.duration_seconds()
         detail: Dict[str, Any] = {
             "id": self._generate_identifier(),

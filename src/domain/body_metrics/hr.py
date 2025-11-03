@@ -7,7 +7,6 @@ from typing import Any, List, Optional, Tuple
 
 def hr_drift_from_splits(splits: List[dict[str, Any]]) -> float:
     """Calculate heart rate drift percentage from distance splits."""
-
     if not splits:
         return 0.0
 
@@ -51,7 +50,6 @@ def estimate_if_tss_from_hr(
     kcal: Optional[float] = None,
 ) -> Optional[Tuple[float, float]]:
     """Estimate IF and TSS from heart-rate data when power metrics are absent."""
-
     del kcal  # appease linters while keeping signature parity for future use
 
     if (

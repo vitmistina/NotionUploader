@@ -23,7 +23,6 @@ def get_local_time(timezone: str = "Europe/Prague") -> Tuple[datetime, str]:
     Returns:
         Tuple of current localized datetime and part of day string.
     """
-
     now: datetime = datetime.now(ZoneInfo(timezone))
     hour: int = now.hour
     if 5 <= hour < 12:

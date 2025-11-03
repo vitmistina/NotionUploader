@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Awaitable, Callable, List, Sequence, Tuple
 
-from ..domain.nutrition.summary import build_daily_summary
 from ..domain.nutrition.summaries import get_daily_nutrition_summaries
+from ..domain.nutrition.summary import build_daily_summary
 from ..models.nutrition import (
     DailyNutritionSummary,
     DailyNutritionSummaryWithEntries,

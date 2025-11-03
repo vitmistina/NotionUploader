@@ -12,7 +12,6 @@ def linear_regression(
     metrics: Optional[List[str]] = None,
 ) -> Dict[str, LinearRegressionResult]:
     """Compute linear regression for core body measurement metrics."""
-
     if metrics is None:
         metrics = [
             "weight_kg",

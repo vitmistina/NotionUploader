@@ -12,7 +12,6 @@ def add_moving_average(
     measurements: List[BodyMeasurement], window: int = 7
 ) -> List[BodyMeasurement]:
     """Attach 7-day moving averages to a list of body measurements."""
-
     metrics = [
         "weight_kg",
         "fat_mass_kg",

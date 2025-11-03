@@ -58,12 +58,12 @@ In Render, configure these values as dashboard environment variables; deployment
 
 ## Testing & Quality Gates
 ```bash
-uv run pytest -q
-uv run ruff check --fix src tests
-uv run ruff check src tests
+uv run import-linter
+uv run ruff check
+uv run pytest --cov=src --cov-report=term-missing
 ```
 
-Run tests and linting before every commit to keep CI green. Agents interacting with this repository should follow the same workflow inside their own virtual environment.
+Run the import boundary checks, linter, and coverage-enabled tests before every commit to keep CI green. Agents interacting with this repository should follow the same workflow inside their own virtual environment.
 
 ## Contribution Workflow Expectations
 - **Stay in `.venv/`**: Never install dependencies globally; recreate the virtual environment with `uv venv` / `uv sync` if dependency resolution drifts.

@@ -11,7 +11,6 @@ def compute_activity_metrics(
     activity: StravaActivity, athlete: dict[str, Any]
 ) -> MetricResults:
     """Derive activity metrics from Strava data and athlete profile."""
-
     splits = [s.model_dump() for s in activity.splits_metric]
     laps = [lap.model_dump() for lap in activity.laps]
     max_hr = athlete.get("max_hr")

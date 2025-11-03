@@ -7,6 +7,8 @@ from warnings import warn
 
 from .domain.body_metrics.hr import (
     estimate_if_tss_from_hr as _estimate_if_tss_from_hr,
+)
+from .domain.body_metrics.hr import (
     hr_drift_from_splits as _hr_drift_from_splits,
 )
 from .domain.body_metrics.moving_average import (

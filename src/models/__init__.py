@@ -1,3 +1,4 @@
+from .advice import AthleteMetrics, SummaryAdvice
 from .body import (
     BodyMeasurement,
     BodyMeasurementAverages,
@@ -6,21 +7,20 @@ from .body import (
     LinearRegressionResult,
 )
 from .nutrition import (
-    NutritionEntry,
     DailyNutritionSummary,
     DailyNutritionSummaryWithEntries,
+    NutritionEntry,
     NutritionSummaryResponse,
 )
 from .responses import OperationStatus
+from .strava import Lap, MetricResults, Split, StravaActivity
+from .time import TimeContext
 from .workout import (
     ManualWorkoutSubmission,
     StravaEvent,
     Workout,
     WorkoutLog,
 )
-from .advice import AthleteMetrics, SummaryAdvice
-from .time import TimeContext
-from .strava import StravaActivity, MetricResults, Split, Lap
 
 __all__ = [
     'BodyMeasurement',

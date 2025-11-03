@@ -54,5 +54,4 @@ class NotionClient(NotionAPI):
 
 def get_notion_client(settings: Settings = Depends(get_settings)) -> NotionAPI:
     """Dependency that provides a configured Notion API client."""
-
     return NotionClient(settings=settings)
