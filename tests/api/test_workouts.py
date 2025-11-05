@@ -9,7 +9,7 @@ from fastapi import FastAPI
 
 from src.application.workouts import WorkoutNotFoundError
 from src.platform.wiring import get_sync_workout_metrics_use_case
-from src.settings import Settings
+from platform.config import Settings
 from tests.conftest import NotionAPIStub
 
 pytestmark = pytest.mark.asyncio

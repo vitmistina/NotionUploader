@@ -19,8 +19,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src import main
 from src.services.interfaces import NotionAPI
 from src.services.notion import get_notion_client
-from src.services.redis import RedisClient, get_redis
-from src.settings import Settings, get_settings
+from platform.clients import RedisClient, get_redis
+from platform.config import Settings, get_settings
 from src.platform.wiring import (
     provide_strava_activity_coordinator,
     provide_withings_port,

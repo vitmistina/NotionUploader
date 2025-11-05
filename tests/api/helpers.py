@@ -7,7 +7,7 @@ import hmac
 import json
 from typing import Any, Dict
 
-from src.settings import Settings
+from platform.config import Settings
 
 _SENTINEL = object()
 
