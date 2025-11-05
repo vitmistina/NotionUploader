@@ -4,8 +4,8 @@ FastAPI service that syncs nutrition, workout, and biometric data from external 
 
 ## Architecture at a Glance
 - **API surface**: `src/routes/` defines versioned FastAPI routers (nutrition, metrics, workouts, advice, Strava) secured by an API key middleware and exposed through `src/main.py`.
-- **Integrations**: Provider-specific clients live in `src/services/` and `src/withings.py` / `src/strava.py`. Shared helpers reside in `src/metrics.py` and `src/notion/`.
-- **Configuration**: `src/settings.py` centralizes environment variables with Pydantic settings and supports Render's uppercase environment naming.
+- **Integrations**: Provider-specific clients live in `src/services/` and `src/withings.py` / `src/strava.py`. Shared helpers reside in `src/domain/` and `src/notion/`.
+- **Configuration**: `src/platform/config.py` centralizes environment variables with Pydantic settings and supports Render's uppercase environment naming.
 - **Schemas**: `openapi.json` is generated from the running app via `uv run python generate_openapi.py` when routes or models change.
 
 ## Prerequisites
@@ -43,7 +43,7 @@ Define the following variables (case insensitive thanks to `SettingsConfigDict(c
 
 | Variable | Description |
 | --- | --- |
-| `API_KEY` | Shared secret for API-key auth enforced by `src/security.py`. |
+| `API_KEY` | Shared secret for API-key auth enforced by `src/platform/security.py`. |
 | `NOTION_SECRET` | Notion integration secret used by Notion client wrappers. |
 | `NOTION_DATABASE_ID` | Target Notion database for nutrition entries. |
 | `NOTION_WORKOUT_DATABASE_ID` | Notion database receiving workout logs. |
@@ -78,7 +78,7 @@ Run the import boundary checks, linter, and coverage-enabled tests before every 
 ## Repository Map
 ```
 .
-├── src/            # Application code, routers, services, settings
+├── src/            # Application code, routers, services, and platform wiring
 ├── tests/          # Pytest suite covering API behavior and integrations
 ├── examples/       # Sample payloads and workflows for manual testing
 ├── generate_openapi.py

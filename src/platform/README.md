@@ -1,9 +1,8 @@
 # Platform module
 
 The `platform` package centralises cross-cutting infrastructure that the API
-relies on. During the transition period existing modules re-export the new
-interfaces, so imports such as `from src.settings import get_settings` continue
-working. New code should import directly from `platform`.
+relies on. Compatibility shims such as `src.settings` have been removed, so
+import directly from `platform.*` modules.
 
 ## Entry points
 - `platform.config` – Pydantic settings (`Settings`, `get_settings`).
@@ -11,7 +10,5 @@ working. New code should import directly from `platform`.
 - `platform.clients` – infrastructure client factories (`RedisClient`, `get_redis`).
 
 ## Transition plan
-Re-exports in `src/settings.py`, `src/security.py` and `src/services/redis.py`
-will be removed after dependants update their imports. Prefer using the
-`platform` package immediately to avoid breakage when the compatibility layer is
-removed.
+Legacy re-export modules were removed in favour of `platform` imports. Update
+any remaining downstream consumers to point at this package.
