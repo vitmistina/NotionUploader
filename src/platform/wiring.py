@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from platform.clients import RedisClient, get_redis
+from platform.config import Settings, get_settings
 from typing import AsyncIterator
 
 import httpx
@@ -24,8 +26,6 @@ from ..notion.infrastructure.nutrition_repository import create_notion_nutrition
 from ..notion.infrastructure.workout_repository import create_notion_workout_adapter
 from ..services.interfaces import NotionAPI
 from ..services.notion import get_notion_client
-from ..services.redis import RedisClient, get_redis
-from ..settings import Settings, get_settings
 from ..strava.application import StravaActivityCoordinator
 from ..strava.infrastructure.client import create_strava_client_adapter
 from ..withings.application import WithingsMeasurementsPort

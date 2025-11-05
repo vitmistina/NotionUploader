@@ -10,7 +10,7 @@ import respx
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.models.body import BodyMeasurement
-from src.settings import Settings
+from platform.config import Settings
 from src.withings.infrastructure.client import WithingsMeasurementsAdapter
 
 

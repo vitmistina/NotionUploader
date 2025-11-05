@@ -8,7 +8,7 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-from src.settings import Settings
+from platform.config import Settings
 from tests.api.helpers import (
     assert_nutrition_entry,
     build_nutrition_create_payload,

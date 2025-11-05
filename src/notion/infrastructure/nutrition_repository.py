@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from platform.config import Settings
 from typing import Any, Dict, List, Optional
 
 from ...models.nutrition import NutritionEntry
 from ...services.interfaces import NotionAPI
-from ...settings import Settings
 from ..application.ports import NutritionRepository
 
 

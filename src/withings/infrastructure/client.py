@@ -3,13 +3,13 @@ from __future__ import annotations
 
 import time
 from datetime import datetime
+from platform.clients import RedisClient
+from platform.config import Settings
 from typing import List, Sequence
 
 import httpx
 
 from ...models.body import BodyMeasurement
-from ...services.redis import RedisClient
-from ...settings import Settings
 from ..application.ports import WithingsMeasurementsPort
 
 

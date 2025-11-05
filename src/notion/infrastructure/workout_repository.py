@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from platform.config import Settings
 from typing import Any, Dict, List, Optional
 
 from ...domain.body_metrics.hr import estimate_if_tss_from_hr
 from ...models.workout import WorkoutLog
 from ...services.interfaces import NotionAPI
-from ...settings import Settings
 from ..application.ports import WorkoutRepository
 
 
