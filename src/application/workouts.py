@@ -64,12 +64,12 @@ class CreateManualWorkoutUseCase:
         if intensity_factor is None or tss is None:
             athlete = await self.repository.fetch_latest_athlete_profile()
             estimate = self.estimator(
-                submission.average_heartrate,
-                submission.max_heartrate,
-                detail.get("elapsed_time"),
-                athlete.get("max_hr"),
-                athlete.get("resting_hr"),
-                submission.calories,
+                hr_avg_session=submission.average_heartrate,
+                hr_max_session=submission.max_heartrate,
+                dur_s=detail.get("elapsed_time"),
+                hr_max_athlete=athlete.get("max_hr"),
+                hr_rest_athlete=athlete.get("resting_hr"),
+                kcal=submission.calories,
             )
             if estimate:
                 if intensity_factor is None:
