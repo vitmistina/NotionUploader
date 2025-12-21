@@ -65,6 +65,28 @@ uv run pytest --cov=src --cov-report=term-missing
 
 Run the import boundary checks, linter, and coverage-enabled tests before every commit to keep CI green. Agents interacting with this repository should follow the same workflow inside their own virtual environment.
 
+## Visualizing tech/project DAGs locally
+This repository includes a Streamlit app that renders dependency graphs declared under `inputs/`.
+
+1. Add one or more JSON files to `inputs/` following this shape:
+   ```json
+   {
+     "techs": ["Python", "Streamlit", "NetworkX"],
+     "projects": [
+       {
+         "name": "Data DAG Visualizer",
+         "tech_dependencies": ["Python", "Streamlit", "NetworkX"],
+         "project_dependencies": ["NotionUploader API"]
+       }
+     ]
+   }
+   ```
+2. Launch the dashboard:
+   ```bash
+   uv run streamlit run src/streamlit_app.py
+   ```
+3. Explore the interactive DAG with color-coded nodes (tech vs. projects) and hover/zoom controls powered by PyVis.
+
 ## Contribution Workflow Expectations
 - **Stay in `.venv/`**: Never install dependencies globally; recreate the virtual environment with `uv venv` / `uv sync` if dependency resolution drifts.
 - **Sync contracts**: When FastAPI routes or models change, regenerate `openapi.json` with `uv run python generate_openapi.py` and commit the result.
