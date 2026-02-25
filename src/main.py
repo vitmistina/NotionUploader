@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from platform import verify_api_key
+from platform.clients import RedisClient, get_redis
 from typing import Any, Dict
 
 import httpx
@@ -40,8 +41,9 @@ async def handle_httpx_connect_error(_: Request, exc: httpx.ConnectError) -> JSO
 
 @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
 @app.api_route("/healthz", methods=["GET", "HEAD"], include_in_schema=False)
-async def healthz() -> dict[str, str]:
-    """Lightweight endpoint used for health checks."""
+async def healthz(redis: RedisClient = Depends(get_redis)) -> dict[str, str]:
+    """Health check endpoint that verifies API process and Upstash Redis connectivity."""
+    redis.get("healthz:upstash")
     return {"status": "ok"}
 
 

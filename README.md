@@ -72,7 +72,7 @@ Run the import boundary checks, linter, and coverage-enabled tests before every 
 - **Review the README**: Treat this document as the source of truth for setup and deployment. Re-read it after each change and update any sections impacted by your modifications before merging.
 
 ## Deployment Notes
-- Render deploys this service via webhook; health checks hit `/healthz`.
+- Render deploys this service via webhook; health checks hit `/healthz`, which now also verifies Upstash Redis connectivity on each probe.
 - The production OpenAPI schema is exposed at `/v2/api-schema` with the server URL pre-set to Render (`https://notionuploader-groa.onrender.com`).
 - Ensure any schema or dependency changes are committed together so the Render build installs the correct versions from `uv.lock`.
 
