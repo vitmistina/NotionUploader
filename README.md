@@ -4,6 +4,7 @@ FastAPI service that syncs nutrition, workout, and biometric data from external 
 
 ## Architecture at a Glance
 - **API surface**: `src/routes/` defines versioned FastAPI routers (nutrition, metrics, workouts, advice, Strava) secured by an API key middleware and exposed through `src/main.py`.
+- **Error handling**: network connectivity failures to upstream services (e.g. Notion, Withings, Upstash Redis) are normalized to HTTP `503` with `UPSTREAM_CONNECTION_FAILED` and best-effort `upstream_host` in the response payload.
 - **Integrations**: Provider-specific clients live in `src/services/` and `src/withings.py` / `src/strava.py`. Shared helpers reside in `src/domain/` (including `src/domain/body_metrics/`) and `src/notion/`.
 - **Configuration**: `platform.config` centralizes environment variables with Pydantic settings and supports Render's uppercase environment naming, while security-critical utilities (API key validation, hashing) live in `platform.security`.
 - **Schemas**: `openapi.json` is generated from the running app via `uv run python generate_openapi.py` when routes or models change.
@@ -71,7 +72,7 @@ Run the import boundary checks, linter, and coverage-enabled tests before every 
 - **Review the README**: Treat this document as the source of truth for setup and deployment. Re-read it after each change and update any sections impacted by your modifications before merging.
 
 ## Deployment Notes
-- Render deploys this service via webhook; health checks hit `/healthz`.
+- Render deploys this service via webhook; health checks hit `/healthz`, which now also verifies Upstash Redis connectivity on each probe.
 - The production OpenAPI schema is exposed at `/v2/api-schema` with the server URL pre-set to Render (`https://notionuploader-groa.onrender.com`).
 - Ensure any schema or dependency changes are committed together so the Render build installs the correct versions from `uv.lock`.
 
