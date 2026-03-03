@@ -1,0 +1,19 @@
+{
+  "techs": [
+    "Python",
+    "FastAPI",
+    "Streamlit",
+    "NetworkX"
+  ],
+  "projects": [
+    {
+      "name": "NotionUploader API",
+      "tech_dependencies": ["Python", "FastAPI"]
+    },
+    {
+      "name": "Data DAG Visualizer",
+      "tech_dependencies": ["Python", "Streamlit", "NetworkX"],
+      "project_dependencies": ["NotionUploader API"]
+    }
+  ]
+}
