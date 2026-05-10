@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import logging
 from platform import Settings, get_settings
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 
 from .platform.wiring import provide_strava_activity_coordinator
 from .strava import StravaActivityCoordinator
@@ -31,11 +33,26 @@ async def verify_subscription(
 @webhook_router.post("/strava-webhook", include_in_schema=False)
 async def strava_event(
     request: Request,
+    x_strava_signature: str | None = Header(default=None, alias="X-Strava-Signature"),
+    settings: Settings = Depends(get_settings),
     service: StravaActivityCoordinator = Depends(
         provide_strava_activity_coordinator
     ),
 ) -> dict[str, str]:
     body = await request.body()
+
+    if x_strava_signature is None:
+        raise HTTPException(
+            status_code=401, detail={"error": "Missing Strava signature"}
+        )
+
+    expected_signature = hmac.new(
+        settings.strava_client_secret.encode(), body, hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(x_strava_signature, expected_signature):
+        raise HTTPException(
+            status_code=403, detail={"error": "Invalid Strava signature"}
+        )
 
     try:
         event = json.loads(body)
