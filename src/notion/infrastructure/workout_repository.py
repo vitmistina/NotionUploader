@@ -30,13 +30,15 @@ class NotionWorkoutAdapter(WorkoutRepository):
         for page in response.get("results", []):
             workout = self._parse_workout_page(page)
             if workout:
-                workouts.append(
-                    self._augment_with_estimates(
-                        workout,
-                        hr_max_athlete=hr_max_athlete,
-                        hr_rest_athlete=hr_rest_athlete,
-                    )
+                updated = self._augment_with_estimates(
+                    workout,
+                    hr_max_athlete=hr_max_athlete,
+                    hr_rest_athlete=hr_rest_athlete,
                 )
+                props = self._metric_update_props(workout, updated)
+                if props:
+                    await self._client.update(workout.page_id, {"properties": props})
+                workouts.append(updated)
         return workouts
 
     async def fetch_latest_athlete_profile(self) -> Dict[str, Any]:
@@ -159,20 +161,26 @@ class NotionWorkoutAdapter(WorkoutRepository):
             hr_rest_athlete=athlete.get("resting_hr"),
         )
 
+        props = self._metric_update_props(workout, updated)
+        if props:
+            await self._client.update(page_id, {"properties": props})
+
+        return updated
+
+    @classmethod
+    def _metric_update_props(
+        cls, workout: WorkoutLog, updated: WorkoutLog
+    ) -> Dict[str, Any]:
         props: Dict[str, Any] = {}
         if workout.type != updated.type:
             props["Type"] = {
                 "rich_text": [{"text": {"content": updated.type}}]
             }
         if workout.tss != updated.tss:
-            self._add_number_prop(props, "TSS", updated.tss)
+            cls._add_number_prop(props, "TSS", updated.tss)
         if workout.intensity_factor != updated.intensity_factor:
-            self._add_number_prop(props, "IF", updated.intensity_factor)
-
-        if props:
-            await self._client.update(page_id, {"properties": props})
-
-        return updated
+            cls._add_number_prop(props, "IF", updated.intensity_factor)
+        return props
 
     @staticmethod
     def _add_number_prop(
