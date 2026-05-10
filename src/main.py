@@ -17,6 +17,7 @@ from .routes.workouts import router as workouts_router
 from .strava_webhook import webhook_router
 
 HEALTHZ_LAST_CHECK_KEY = "healthz:last_check_at"
+OPENAPI_HTTP_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
 
 
 app: FastAPI = FastAPI(
@@ -56,11 +57,21 @@ async def healthz(redis: RedisClient = Depends(get_redis)) -> dict[str, str | No
 @app.get("/v2/api-schema")
 async def get_api_schema(request: Request, _: Any = Depends(verify_api_key)) -> JSONResponse:
     """Return the OpenAPI schema for this API version."""
-    openapi_schema: Dict[str, Any] = request.app.openapi()
+    return JSONResponse(build_openapi_schema(request.app))
+
+
+def build_openapi_schema(fastapi_app: FastAPI) -> Dict[str, Any]:
+    """Return the published OpenAPI schema with API contract extensions."""
+    openapi_schema: Dict[str, Any] = fastapi_app.openapi()
     openapi_schema["servers"] = [
         {"url": "https://notionuploader-groa.onrender.com"}
     ]
-    return JSONResponse(openapi_schema)
+    for path_item in openapi_schema.get("paths", {}).values():
+        for method, operation in path_item.items():
+            if method in OPENAPI_HTTP_METHODS and isinstance(operation, dict):
+                operation["x-openai-isConsequential"] = False
+                operation["is_consequential"] = False
+    return openapi_schema
 
 
 for router in (

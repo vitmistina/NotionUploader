@@ -33,7 +33,7 @@ async def test_api_schema_auth_contract(
 
 
 async def test_openapi_schema(client: httpx.AsyncClient, settings: Settings) -> None:
-    """The generated schema defines the API key security scheme only once."""
+    """The schema route exposes the committed API key and OpenAI metadata contract."""
 
     response = await client.get("/v2/api-schema", headers={"x-api-key": settings.api_key})
 
@@ -43,5 +43,9 @@ async def test_openapi_schema(client: httpx.AsyncClient, settings: Settings) -> 
     assert schema["components"]["securitySchemes"]["ApiKeyAuth"]["name"] == "x-api-key"
     for path_item in schema["paths"].values():
         for operation in path_item.values():
-            if isinstance(operation, dict) and "parameters" in operation:
+            if not isinstance(operation, dict):
+                continue
+            assert operation["x-openai-isConsequential"] is False
+            assert operation["is_consequential"] is False
+            if "parameters" in operation:
                 assert all(parameter["name"] != "x-api-key" for parameter in operation["parameters"])
