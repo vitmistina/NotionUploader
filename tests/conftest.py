@@ -82,6 +82,20 @@ class RedisFake(RedisClient):
         if ex is not None:
             assert last_ex == ex, f"Expected last set ex {ex!r}, saw {last_ex!r}"
 
+    def assert_no_pending_expectations(self) -> None:
+        """Assert all queued Redis expectations were consumed."""
+
+        pending = []
+        pending.extend(
+            f"get(key={key!r}, returns={returns!r})"
+            for key, returns in self._expected_gets
+        )
+        pending.extend(
+            f"set(key={key!r}, value={value!r}, ex={ex!r})"
+            for key, value, ex in self._expected_sets
+        )
+        assert not pending, "Unconsumed Redis expectations: " + "; ".join(pending)
+
     def get(self, key: str) -> Optional[str]:
         self._last_get = key
         if self._expected_gets:
@@ -272,6 +286,17 @@ class NotionAPIStub(NotionAPI):
     def query_history(self) -> list[Dict[str, Any]]:
         return [payload["payload"] for _, payload in self._call_history.get("query", [])]
 
+    def assert_no_pending_expectations(self) -> None:
+        """Assert all queued Notion API expectations were consumed."""
+
+        pending = [
+            f"{method}({expectation.expected!r}, returns={expectation.returns!r}, "
+            f"raises={expectation.raises!r})"
+            for method, expectations in self._expectations.items()
+            for expectation in expectations
+        ]
+        assert not pending, "Unconsumed Notion API expectations: " + "; ".join(pending)
+
     def _last_payload(self, name: str) -> Dict[str, Any] | None:
         if name not in self._last_calls:
             return None
@@ -310,6 +335,21 @@ class WithingsPortFake(WithingsMeasurementsPort):
             assert (
                 self._last_fetch[0] == days
             ), f"Expected fetch_measurements({days}), saw {self._last_fetch[0]}"
+
+    def assert_no_pending_expectations(self) -> None:
+        """Assert all queued Withings expectations were consumed."""
+
+        pending = [
+            f"refresh_access_token({expectation.expected!r}, returns={expectation.returns!r}, "
+            f"raises={expectation.raises!r})"
+            for expectation in self._expected_refresh
+        ]
+        pending.extend(
+            f"fetch_measurements({expectation.expected!r}, returns={expectation.returns!r}, "
+            f"raises={expectation.raises!r})"
+            for expectation in self._expected_fetch
+        )
+        assert not pending, "Unconsumed Withings expectations: " + "; ".join(pending)
 
     async def refresh_access_token(self) -> str:
         self._last_refresh = True
@@ -358,6 +398,15 @@ class StravaCoordinatorSpy:
                 self.processed[-1] == activity_id
             ), f"Expected last processed {activity_id}, saw {self.processed[-1]}"
 
+    def assert_no_pending_expectations(self) -> None:
+        """Assert all queued Strava coordinator expectations were consumed."""
+
+        pending = [
+            f"process_activity({expectation.expected!r}, raises={expectation.raises!r})"
+            for expectation in self._expected_process
+        ]
+        assert not pending, "Unconsumed Strava coordinator expectations: " + "; ".join(pending)
+
     async def process_activity(self, activity_id: int) -> None:
         self.processed.append(activity_id)
         if self._expected_process:
@@ -393,18 +442,24 @@ def settings() -> Settings:
 
 
 @pytest.fixture
-def redis_fake() -> RedisFake:
-    return RedisFake()
+def redis_fake() -> Iterator[RedisFake]:
+    fake = RedisFake()
+    yield fake
+    fake.assert_no_pending_expectations()
 
 
 @pytest.fixture
-def notion_api_stub() -> NotionAPIStub:
-    return NotionAPIStub()
+def notion_api_stub() -> Iterator[NotionAPIStub]:
+    stub = NotionAPIStub()
+    yield stub
+    stub.assert_no_pending_expectations()
 
 
 @pytest.fixture
-def withings_port_fake() -> WithingsPortFake:
-    return WithingsPortFake()
+def withings_port_fake() -> Iterator[WithingsPortFake]:
+    fake = WithingsPortFake()
+    yield fake
+    fake.assert_no_pending_expectations()
 
 
 @pytest.fixture
@@ -415,8 +470,10 @@ def notion_workout_fake(settings: Settings) -> NotionWorkoutFake:
 
 
 @pytest.fixture
-def strava_coordinator_spy() -> StravaCoordinatorSpy:
-    return StravaCoordinatorSpy()
+def strava_coordinator_spy() -> Iterator[StravaCoordinatorSpy]:
+    spy = StravaCoordinatorSpy()
+    yield spy
+    spy.assert_no_pending_expectations()
 
 
 @pytest.fixture
