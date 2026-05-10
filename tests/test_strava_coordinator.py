@@ -15,6 +15,11 @@ from src.strava import StravaActivityCoordinator
 from src.strava.domain.metrics import compute_activity_metrics
 from src.strava.infrastructure.client import StravaClientAdapter
 
+EXPECTED_POWER_INTENSITY_FACTOR = 1.05
+EXPECTED_POWER_TSS = 5.5125
+EXPECTED_SHORT_POWER_TSS = 3.675
+EXPECTED_WITHOUT_HR_INTENSITY_FACTOR = 1.0
+EXPECTED_WITHOUT_HR_TSS = 3.3333333333333335
 
 class DummyRedis:
     def __init__(self) -> None:
@@ -115,8 +120,8 @@ def test_compute_activity_metrics() -> None:
     metrics = compute_activity_metrics(activity, athlete)
 
     assert metrics.vo2 == pytest.approx(3.0)
-    assert metrics.intensity_factor == pytest.approx(1.05)
-    assert metrics.tss == pytest.approx(5.5125)
+    assert metrics.intensity_factor == pytest.approx(EXPECTED_POWER_INTENSITY_FACTOR)
+    assert metrics.tss == pytest.approx(EXPECTED_POWER_TSS)
 
 
 def test_compute_activity_metrics_without_heart_rate() -> None:
@@ -143,8 +148,8 @@ def test_compute_activity_metrics_without_heart_rate() -> None:
 
     assert metrics.hr_drift == 0.0
     assert metrics.vo2 == 0.0
-    assert metrics.intensity_factor == pytest.approx(1.0)
-    assert metrics.tss == pytest.approx(3.3333333333333335)
+    assert metrics.intensity_factor == pytest.approx(EXPECTED_WITHOUT_HR_INTENSITY_FACTOR)
+    assert metrics.tss == pytest.approx(EXPECTED_WITHOUT_HR_TSS)
 
 
 @pytest.mark.asyncio
@@ -197,8 +202,10 @@ async def test_coordinator_process_activity_fetches_metrics_and_persists() -> No
 
     assert repository.saved_payload is not None
     assert repository.saved_payload["detail"]["id"] == 42
-    assert repository.saved_payload["tss"] is not None
-    assert repository.saved_payload["intensity_factor"] == pytest.approx(1.05)
+    assert repository.saved_payload["tss"] == pytest.approx(EXPECTED_SHORT_POWER_TSS)
+    assert repository.saved_payload["intensity_factor"] == pytest.approx(
+        EXPECTED_POWER_INTENSITY_FACTOR
+    )
 
 
 @pytest.mark.asyncio

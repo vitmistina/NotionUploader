@@ -17,6 +17,20 @@ from tests.builders import (
 from tests.conftest import NotionAPIStub
 from tests.fakes import NotionWorkoutFake
 
+EXPECTED_BACKFILL_INTENSITY_FACTOR = 0.78
+EXPECTED_BACKFILL_TSS = 78.3
+EXPECTED_FILL_INTENSITY_FACTOR = 0.87
+EXPECTED_FILL_TSS = 87.3
+USER_SUPPLIED_INTENSITY_FACTOR = 0.62
+USER_SUPPLIED_TSS = 33.0
+
+
+def assert_metric_update_payload(
+    payload: dict, *, expected_tss: float, expected_intensity_factor: float
+) -> None:
+    properties = payload["properties"]
+    assert properties["TSS"]["number"] == pytest.approx(expected_tss)
+    assert properties["IF"]["number"] == pytest.approx(expected_intensity_factor)
 
 @pytest.mark.asyncio
 async def test_fetch_workouts_includes_minimal_entries(
@@ -98,9 +112,22 @@ async def test_list_recent_workouts_backfills_metrics(
     workouts = await repository.list_recent_workouts(7)
 
     assert workouts[0].type == "Gym"
-    assert workouts[0].tss is not None
-    assert workouts[0].intensity_factor is not None
+    assert workouts[0].tss == pytest.approx(EXPECTED_BACKFILL_TSS)
+    assert workouts[0].intensity_factor == pytest.approx(
+        EXPECTED_BACKFILL_INTENSITY_FACTOR
+    )
     assert workouts[0].page_id == "page-backfill"
+
+    page_id, payload = notion_workout_fake.updates()[-1]
+    assert page_id == "page-backfill"
+    assert payload["properties"]["Type"] == {
+        "rich_text": [{"text": {"content": "Gym"}}]
+    }
+    assert_metric_update_payload(
+        payload,
+        expected_tss=EXPECTED_BACKFILL_TSS,
+        expected_intensity_factor=EXPECTED_BACKFILL_INTENSITY_FACTOR,
+    )
 
 
 @pytest.mark.asyncio
@@ -138,13 +165,19 @@ async def test_fill_missing_metrics_updates_notion(
 
     assert updated is not None
     assert updated.page_id == "page-fill"
-    assert updated.tss is not None
-    assert updated.intensity_factor is not None
+    assert updated.tss == pytest.approx(EXPECTED_FILL_TSS)
+    assert updated.intensity_factor == pytest.approx(EXPECTED_FILL_INTENSITY_FACTOR)
 
     page_id, payload = notion_workout_fake.updates()[-1]
     assert page_id == "page-fill"
     properties = payload["properties"]
     assert {"TSS", "IF", "Type"}.issubset(properties.keys())
+    assert properties["Type"] == {"rich_text": [{"text": {"content": "Gym"}}]}
+    assert_metric_update_payload(
+        payload,
+        expected_tss=EXPECTED_FILL_TSS,
+        expected_intensity_factor=EXPECTED_FILL_INTENSITY_FACTOR,
+    )
 
 
 @pytest.mark.asyncio
@@ -239,3 +272,44 @@ async def test_save_workout_updates_existing_notion_page(
     assert properties["Name"] == {"title": [{"text": {"content": "Strength"}}]}
     assert properties["Type"] == {"rich_text": [{"text": {"content": "Gym"}}]}
     assert properties["Id"] == {"number": 456}
+
+
+@pytest.mark.asyncio
+async def test_fill_missing_metrics_preserves_user_supplied_metrics(
+    settings: Settings,
+    freeze_time,
+    notion_workout_fake: NotionWorkoutFake,
+) -> None:
+    """Existing user-supplied TSS and IF values are not overwritten by estimates."""
+
+    _ = freeze_time
+
+    notion_workout_fake.with_profile(
+        make_notion_profile({"Max HR": notion_number(185)})
+    ).with_workouts(
+        [
+            make_notion_workout(
+                id="page-preserve",
+                properties={
+                    "Name": notion_title("Gym Session"),
+                    "Date": {"date": {"start": "2025-10-10"}},
+                    "Distance [m]": notion_number(0),
+                    "Elevation [m]": notion_number(0),
+                    "Type": notion_rich_text("Gym"),
+                    "Average Heartrate": notion_number(150),
+                    "Max Heartrate": notion_number(175),
+                    "TSS": notion_number(USER_SUPPLIED_TSS),
+                    "IF": notion_number(USER_SUPPLIED_INTENSITY_FACTOR),
+                },
+            )
+        ]
+    )
+
+    repository = NotionWorkoutAdapter(settings=settings, client=notion_workout_fake)
+
+    updated = await repository.fill_missing_metrics("page-preserve")
+
+    assert updated is not None
+    assert updated.tss == pytest.approx(USER_SUPPLIED_TSS)
+    assert updated.intensity_factor == pytest.approx(USER_SUPPLIED_INTENSITY_FACTOR)
+    assert notion_workout_fake.updates() == []
