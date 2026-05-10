@@ -14,6 +14,7 @@ from tests.builders import (
     notion_rich_text,
     notion_title,
 )
+from tests.conftest import NotionAPIStub
 from tests.fakes import NotionWorkoutFake
 
 
@@ -144,3 +145,97 @@ async def test_fill_missing_metrics_updates_notion(
     assert page_id == "page-fill"
     properties = payload["properties"]
     assert {"TSS", "IF", "Type"}.issubset(properties.keys())
+
+
+@pytest.mark.asyncio
+async def test_save_workout_creates_new_notion_page(
+    settings: Settings, notion_api_stub: NotionAPIStub
+) -> None:
+    detail = {
+        "id": 123,
+        "name": "Morning Ride",
+        "start_date": "2026-05-10T12:00:00Z",
+        "elapsed_time": 3600,
+        "distance": 25_000,
+        "total_elevation_gain": 250,
+        "type": "Ride",
+        "average_cadence": 82,
+        "average_watts": 180,
+        "weighted_average_watts": 200,
+        "kilojoules": 650,
+        "calories": 700,
+        "average_heartrate": 145,
+        "max_heartrate": 172,
+        "description": "Sunny endurance ride",
+    }
+    notion_api_stub.expect_query(
+        settings.notion_workout_database_id,
+        {
+            "filter": {"property": "Id", "number": {"equals": 123}},
+            "page_size": 1,
+        },
+        returns={"results": []},
+    ).expect_create(returns={"id": "created-page"})
+    repository = NotionWorkoutAdapter(settings=settings, client=notion_api_stub)
+
+    await repository.save_workout(
+        detail,
+        "attachment",
+        hr_drift=1.5,
+        vo2max=42.0,
+        tss=55.0,
+        intensity_factor=0.75,
+    )
+
+    payload = notion_api_stub.last_create_payload()
+    assert payload is not None
+    assert payload["parent"] == {"database_id": settings.notion_workout_database_id}
+    properties = payload["properties"]
+    assert properties["Name"] == {"title": [{"text": {"content": "Morning Ride"}}]}
+    assert properties["Date"] == {"date": {"start": "2026-05-10"}}
+    assert properties["Day of week"] == {"select": {"name": "Sunday"}}
+    assert properties["Type"] == {"rich_text": [{"text": {"content": "Ride"}}]}
+    assert properties["Notes"] == {
+        "rich_text": [{"text": {"content": "Sunny endurance ride"}}]
+    }
+    assert properties["TSS"] == {"number": 55.0}
+    assert properties["IF"] == {"number": 0.75}
+
+
+@pytest.mark.asyncio
+async def test_save_workout_updates_existing_notion_page(
+    settings: Settings, notion_api_stub: NotionAPIStub
+) -> None:
+    detail = {
+        "id": 456,
+        "name": "Strength",
+        "elapsed_time": 1800,
+        "distance": 0,
+        "total_elevation_gain": 0,
+        "type": None,
+    }
+    notion_api_stub.expect_query(
+        settings.notion_workout_database_id,
+        {
+            "filter": {"property": "Id", "number": {"equals": 456}},
+            "page_size": 1,
+        },
+        returns={"results": [{"id": "existing-page"}]},
+    ).expect_update(page_id="existing-page", returns={"id": "existing-page"})
+    repository = NotionWorkoutAdapter(settings=settings, client=notion_api_stub)
+
+    await repository.save_workout(
+        detail,
+        "attachment",
+        hr_drift=0.0,
+        vo2max=0.0,
+        tss=20.0,
+        intensity_factor=0.5,
+    )
+
+    payload = notion_api_stub.last_update_payload()
+    assert payload is not None
+    properties = payload["properties"]
+    assert properties["Name"] == {"title": [{"text": {"content": "Strength"}}]}
+    assert properties["Type"] == {"rich_text": [{"text": {"content": "Gym"}}]}
+    assert properties["Id"] == {"number": 456}

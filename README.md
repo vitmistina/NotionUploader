@@ -33,7 +33,7 @@ uv sync --dev
 uv run uvicorn src.main:app --reload
 ```
 
-With the server running, `/` and `/healthz` provide lightweight health checks, while the authenticated API lives under `/v2`. Regenerate the OpenAPI description after changing models or routes:
+With the server running, `/` and `/healthz` provide lightweight health checks that return the prior Redis-recorded probe timestamp and store the current probe timestamp, while the authenticated API lives under `/v2`. Regenerate the OpenAPI description after changing models or routes:
 
 ```bash
 uv run python generate_openapi.py
@@ -72,7 +72,7 @@ Run the import boundary checks, linter, and coverage-enabled tests before every 
 - **Review the README**: Treat this document as the source of truth for setup and deployment. Re-read it after each change and update any sections impacted by your modifications before merging.
 
 ## Deployment Notes
-- Render deploys this service via webhook; health checks hit `/healthz`, which now also verifies Upstash Redis connectivity on each probe.
+- Render deploys this service via webhook; health checks hit `/healthz`, which reads the previous Redis-recorded probe timestamp and upserts the current timestamp on each probe.
 - The production OpenAPI schema is exposed at `/v2/api-schema` with the server URL pre-set to Render (`https://notionuploader-groa.onrender.com`).
 - Ensure any schema or dependency changes are committed together so the Render build installs the correct versions from `uv.lock`.
 

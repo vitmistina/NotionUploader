@@ -169,3 +169,54 @@ async def test_coordinator_persist_to_notion() -> None:
     detail = repository.saved_payload["detail"]
     assert detail["description"] == "ride"
     assert isinstance(repository.saved_payload["attachment"], str)
+
+
+@pytest.mark.asyncio
+async def test_coordinator_process_activity_fetches_metrics_and_persists() -> None:
+    repository = DummyWorkoutRepository()
+    repository.athlete_profile = {"max_hr": 190, "ftp": 200}
+
+    class DummyClient:
+        async def get_activity(self, activity_id: int) -> Dict[str, Any]:
+            assert activity_id == 42
+            return {
+                "id": 42,
+                "name": "Ride",
+                "splits_metric": [{"average_heartrate": 150, "moving_time": 60}],
+                "laps": [
+                    {"average_heartrate": 150, "moving_time": 60, "max_heartrate": 170},
+                    {"average_heartrate": 155, "moving_time": 60, "max_heartrate": 175},
+                ],
+                "weighted_average_watts": 210,
+                "moving_time": 120,
+            }
+
+    coordinator = StravaActivityCoordinator(DummyClient(), repository)  # type: ignore[arg-type]
+
+    await coordinator.process_activity(42)
+
+    assert repository.saved_payload is not None
+    assert repository.saved_payload["detail"]["id"] == 42
+    assert repository.saved_payload["tss"] is not None
+    assert repository.saved_payload["intensity_factor"] == pytest.approx(1.05)
+
+
+@pytest.mark.asyncio
+async def test_coordinator_process_activity_wraps_auth_errors() -> None:
+    from fastapi import HTTPException
+    from src.strava.application.ports import StravaAuthError
+
+    repository = DummyWorkoutRepository()
+
+    class DummyClient:
+        async def get_activity(self, activity_id: int) -> Dict[str, Any]:  # noqa: ARG002
+            raise StravaAuthError("expired")
+
+    coordinator = StravaActivityCoordinator(DummyClient(), repository)  # type: ignore[arg-type]
+
+    with pytest.raises(HTTPException) as exc_info:
+        await coordinator.process_activity(42)
+
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == {"error": "Auth failure"}
+    assert repository.saved_payload is None
