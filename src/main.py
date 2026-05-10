@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from platform import verify_api_key
 from platform.clients import RedisClient, get_redis
 from typing import Any, Dict
@@ -14,6 +15,9 @@ from .routes.nutrition import router as nutrition_router
 from .routes.strava import router as strava_router
 from .routes.workouts import router as workouts_router
 from .strava_webhook import webhook_router
+
+HEALTHZ_LAST_CHECK_KEY = "healthz:last_check_at"
+
 
 app: FastAPI = FastAPI(
     title="Nutrition Logger",
@@ -41,10 +45,12 @@ async def handle_httpx_connect_error(_: Request, exc: httpx.ConnectError) -> JSO
 
 @app.api_route("/", methods=["GET", "HEAD"], include_in_schema=False)
 @app.api_route("/healthz", methods=["GET", "HEAD"], include_in_schema=False)
-async def healthz(redis: RedisClient = Depends(get_redis)) -> dict[str, str]:
-    """Health check endpoint that verifies API process and Upstash Redis connectivity."""
-    redis.get("healthz:upstash")
-    return {"status": "ok"}
+async def healthz(redis: RedisClient = Depends(get_redis)) -> dict[str, str | None]:
+    """Record and return the previous health check timestamp."""
+    previous_check_at = redis.get(HEALTHZ_LAST_CHECK_KEY)
+    checked_at = datetime.now(timezone.utc).isoformat()
+    redis.set(HEALTHZ_LAST_CHECK_KEY, checked_at)
+    return {"status": "ok", "previous_check_at": previous_check_at}
 
 
 @app.get("/v2/api-schema")
