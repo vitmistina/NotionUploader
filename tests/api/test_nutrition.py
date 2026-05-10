@@ -57,6 +57,7 @@ async def test_log_nutrition_error(
     )
 
     assert response.status_code == 500
+    assert response.json() == {"detail": {"error": "boom"}}
 
 
 async def test_get_foods_by_date(
@@ -188,3 +189,4 @@ async def test_get_foods_by_date_timeout(
     )
 
     assert response.status_code == 504
+    assert response.json() == {"detail": {"error": "timeout"}}

@@ -76,10 +76,14 @@ async def test_refresh_access_token_success(respx_mock: respx.Router) -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_refresh_access_token_without_refresh_token(respx_mock: respx.Router) -> None:
-    client = WithingsMeasurementsAdapter(redis=RecordingRedis(), settings=TEST_SETTINGS)
+    redis = RecordingRedis()
+    client = WithingsMeasurementsAdapter(redis=redis, settings=TEST_SETTINGS)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="No Withings refresh token found in Redis"):
         await client.refresh_access_token()
+
+    assert redis.store == {}
+    assert redis.expirations == {}
 
 
 @pytest.mark.asyncio
@@ -93,8 +97,11 @@ async def test_refresh_access_token_http_error(respx_mock: respx.Router) -> None
 
     client = WithingsMeasurementsAdapter(redis=redis, settings=TEST_SETTINGS)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="Failed to refresh Withings access token"):
         await client.refresh_access_token()
+
+    assert redis.store == {"withings_refresh_token": "refresh-token"}
+    assert redis.expirations == {}
 
 
 @pytest.mark.asyncio
@@ -111,8 +118,11 @@ async def test_refresh_access_token_error_status(respx_mock: respx.Router) -> No
 
     client = WithingsMeasurementsAdapter(redis=redis, settings=TEST_SETTINGS)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="Withings API error: boom"):
         await client.refresh_access_token()
+
+    assert redis.store == {"withings_refresh_token": "refresh-token"}
+    assert redis.expirations == {}
 
 
 @pytest.mark.asyncio
@@ -126,8 +136,13 @@ async def test_refresh_access_token_missing_access_token(respx_mock: respx.Route
 
     client = WithingsMeasurementsAdapter(redis=redis, settings=TEST_SETTINGS)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(
+        RuntimeError, match="Withings refresh response missing access token"
+    ):
         await client.refresh_access_token()
+
+    assert redis.store == {"withings_refresh_token": "refresh-token"}
+    assert redis.expirations == {}
 
 
 @pytest.mark.asyncio
@@ -233,5 +248,5 @@ async def test_fetch_measurements_raises_on_api_error(respx_mock: respx.Router) 
 
     client = WithingsMeasurementsAdapter(redis=redis, settings=TEST_SETTINGS)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match="Withings API error: boom"):
         await client.fetch_measurements(days=1)

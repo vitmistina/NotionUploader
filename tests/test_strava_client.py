@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Callable, Dict, Optional
-
 import httpx
 import pytest
 
@@ -66,53 +64,79 @@ async def test_strava_client_refreshes_access_token_on_401(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "scenario, seed_store, handler",
-    [
-        pytest.param(
-            "missing_token",
-            {},
-            None,
-            id="missing_token",
-        ),
-        pytest.param(
-            "http_error",
-            {"strava_refresh_token": "refresh-token"},
-            lambda request: httpx.Response(500, json={"message": "error"}),
-            id="http_error",
-        ),
-        pytest.param(
-            "missing_access_token",
-            {"strava_refresh_token": "refresh-token"},
-            lambda request: httpx.Response(
-                200, json={"refresh_token": "new-refresh"}
-            ),
-            id="missing_access_token",
-        ),
-    ],
-)
-async def test_strava_refresh_access_token_failure_modes(
-    scenario: str,
-    seed_store: Dict[str, str],
-    handler: Optional[Callable[[httpx.Request], httpx.Response]],
+async def test_strava_refresh_access_token_without_refresh_token(
     settings: Settings,
     freeze_time,
     redis_fake: RedisFake,
 ) -> None:
-    """Refreshing the Strava token surfaces storage and HTTP failures."""
+    """A missing Strava refresh token fails before touching cached tokens."""
 
     _ = freeze_time
-    redis_fake.store.update(seed_store)
 
-    transport_handler = handler or (lambda _: httpx.Response(204))
-
-    async with httpx.AsyncClient(transport=httpx.MockTransport(transport_handler)) as http_client:
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _: httpx.Response(204))
+    ) as http_client:
         strava_client = StravaClientAdapter(http_client, redis_fake, settings)
-        with pytest.raises(StravaAuthError):
+        with pytest.raises(
+            StravaAuthError, match="No Strava refresh token found in Redis"
+        ):
             await strava_client._refresh_access_token()
 
-    if scenario == "missing_token":
-        assert not redis_fake.expirations
+    assert redis_fake.store == {}
+    assert redis_fake.expirations == {}
+
+
+@pytest.mark.asyncio
+async def test_strava_refresh_access_token_http_error_preserves_cache(
+    settings: Settings,
+    freeze_time,
+    redis_fake: RedisFake,
+) -> None:
+    """HTTP token-refresh failures do not partially update Redis."""
+
+    _ = freeze_time
+    redis_fake.store["strava_refresh_token"] = "refresh-token"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        return httpx.Response(500, json={"message": "error"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        strava_client = StravaClientAdapter(http_client, redis_fake, settings)
+        with pytest.raises(
+            StravaAuthError, match="Failed to refresh Strava access token"
+        ):
+            await strava_client._refresh_access_token()
+
+    assert redis_fake.store == {"strava_refresh_token": "refresh-token"}
+    assert redis_fake.expirations == {}
+
+
+@pytest.mark.asyncio
+async def test_strava_refresh_access_token_missing_access_token_preserves_cache(
+    settings: Settings,
+    freeze_time,
+    redis_fake: RedisFake,
+) -> None:
+    """Malformed token-refresh payloads do not partially update Redis."""
+
+    _ = freeze_time
+    redis_fake.store["strava_refresh_token"] = "refresh-token"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        return httpx.Response(200, json={"refresh_token": "new-refresh"})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http_client:
+        strava_client = StravaClientAdapter(http_client, redis_fake, settings)
+        with pytest.raises(
+            StravaAuthError,
+            match="Strava token refresh response missing access token",
+        ):
+            await strava_client._refresh_access_token()
+
+    assert redis_fake.store == {"strava_refresh_token": "refresh-token"}
+    assert redis_fake.expirations == {}
 
 
 @pytest.mark.asyncio
