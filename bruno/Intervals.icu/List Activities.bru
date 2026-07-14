@@ -1,0 +1,4 @@
+meta { name: List Activities type: http seq: 1 }
+get { url: {{intervals_base_url}}/athlete/0/activities?oldest={{oldest}}&newest={{newest}} body: none auth: basic }
+auth:basic { username: API_KEY password: {{intervals_api_key}} }
+headers { Accept: application/json }

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.conftest import NotionAPIStub, RedisFake, StravaCoordinatorSpy, WithingsPortFake
+from tests.conftest import NotionAPIStub, RedisFake, IntervalsSyncCoordinatorSpy, WithingsPortFake
 
 
 def test_redis_fake_reports_unconsumed_expectation_payload() -> None:
@@ -37,11 +37,26 @@ def test_withings_port_fake_reports_unconsumed_expectation_payload() -> None:
         fake.assert_no_pending_expectations()
 
 
-def test_strava_coordinator_spy_reports_unconsumed_expectation_payload() -> None:
-    """Unconsumed Strava expectations identify the queued method and expected payload."""
+def test_intervals_sync_coordinator_spy_reports_unconsumed_expectation_payload() -> None:
+    """Unconsumed Intervals expectations identify the queued method and expected payload."""
 
-    spy = StravaCoordinatorSpy()
-    spy.expect_process_activity(activity_id=42)
+    spy = IntervalsSyncCoordinatorSpy()
+    spy.expect_sync(
+        lookback_days=42,
+        returns=__import__(
+            "src.intervals_icu.application", fromlist=["IntervalsSyncResult"]
+        ).IntervalsSyncResult(
+            status="ok",
+            oldest=__import__("datetime").date(2026, 7, 7),
+            newest=__import__("datetime").date(2026, 7, 14),
+            lookback_days=42,
+            discovered=0,
+            eligible=0,
+            processed=0,
+            skipped=0,
+            failed=0,
+        ),
+    )
 
-    with pytest.raises(AssertionError, match="process_activity.*activity_id.*42"):
+    with pytest.raises(AssertionError, match="sync_recent.*lookback_days.*42"):
         spy.assert_no_pending_expectations()

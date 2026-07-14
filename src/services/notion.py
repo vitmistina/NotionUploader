@@ -31,9 +31,7 @@ class NotionClient(NotionAPI):
                 status_code=504, detail={"error": "Request to Notion timed out"}
             ) from exc
         if resp.status_code != 200:
-            raise HTTPException(
-                status_code=resp.status_code, detail={"error": resp.text}
-            )
+            raise HTTPException(status_code=resp.status_code, detail={"error": resp.text})
         return resp
 
     async def query(self, database_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -51,6 +49,7 @@ class NotionClient(NotionAPI):
     async def retrieve(self, page_id: str) -> Dict[str, Any]:
         resp = await self._request("GET", f"/pages/{page_id}")
         return resp.json()
+
 
 def get_notion_client(settings: Settings = Depends(get_settings)) -> NotionAPI:
     """Dependency that provides a configured Notion API client."""

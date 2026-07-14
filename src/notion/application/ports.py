@@ -16,9 +16,7 @@ class NutritionRepository(Protocol):
     async def list_entries_on_date(self, date: str) -> List[NutritionEntry]:
         """Return nutrition entries for a specific date."""
 
-    async def list_entries_in_range(
-        self, start_date: str, end_date: str
-    ) -> List[NutritionEntry]:
+    async def list_entries_in_range(self, start_date: str, end_date: str) -> List[NutritionEntry]:
         """Return nutrition entries between the provided dates (inclusive)."""
 
 

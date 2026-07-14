@@ -36,8 +36,7 @@ async def test_summary_advice_returns_friendly_error_on_withings_connection_issu
     assert response.json() == {
         "error": "UPSTREAM_CONNECTION_FAILED",
         "message": (
-            "Could not connect to an upstream dependency service. "
-            "Please try again shortly."
+            "Could not connect to an upstream dependency service. Please try again shortly."
         ),
         "upstream_host": "redis.example.com",
     }
@@ -67,8 +66,7 @@ async def test_nutrition_route_also_uses_friendly_connection_error_response(
     assert response.json() == {
         "error": "UPSTREAM_CONNECTION_FAILED",
         "message": (
-            "Could not connect to an upstream dependency service. "
-            "Please try again shortly."
+            "Could not connect to an upstream dependency service. Please try again shortly."
         ),
         "upstream_host": "api.notion.com",
     }

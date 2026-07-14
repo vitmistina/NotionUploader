@@ -10,11 +10,10 @@ from ..config import Settings, get_settings
 
 class RedisClient(Protocol):
     """Minimal Redis client interface used by the application."""
-    def get(self, key: str) -> Optional[str]:
-        ...
 
-    def set(self, key: str, value: str, ex: int | None = None) -> None:
-        ...
+    def get(self, key: str) -> Optional[str]: ...
+
+    def set(self, key: str, value: str, ex: int | None = None) -> None: ...
 
 
 def get_redis(settings: Settings = Depends(get_settings)) -> RedisClient:

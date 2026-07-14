@@ -20,16 +20,11 @@ def linear_regression(
             "fat_mass_kg",
         ]
 
-    sorted_measurements = sorted(
-        measurements, key=lambda m: m.measurement_time
-    )
+    sorted_measurements = sorted(measurements, key=lambda m: m.measurement_time)
     if not sorted_measurements:
         return {}
     start = sorted_measurements[0].measurement_time
-    x_values = [
-        (m.measurement_time - start).total_seconds() / 86400
-        for m in sorted_measurements
-    ]
+    x_values = [(m.measurement_time - start).total_seconds() / 86400 for m in sorted_measurements]
 
     results: Dict[str, LinearRegressionResult] = {}
     for metric in metrics:
@@ -48,8 +43,6 @@ def linear_regression(
         ss_tot = sum((y - y_mean) ** 2 for y in ys)
         ss_res = sum((y - (slope * x + intercept)) ** 2 for x, y in zip(xs, ys))
         r2 = 1 - ss_res / ss_tot if ss_tot else 0.0
-        results[metric] = LinearRegressionResult(
-            slope=slope, intercept=intercept, r2=r2
-        )
+        results[metric] = LinearRegressionResult(slope=slope, intercept=intercept, r2=r2)
 
     return results

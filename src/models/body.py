@@ -9,27 +9,17 @@ from pydantic import BaseModel, ConfigDict, Field
 class BodyMeasurementAverages(BaseModel):
     """7-day moving averages for body measurements."""
 
-    weight_kg: float = Field(
-        ..., description="7-day average of body weight in kilograms"
-    )
-    fat_mass_kg: float = Field(
-        ..., description="7-day average of total fat mass in kilograms"
-    )
+    weight_kg: float = Field(..., description="7-day average of body weight in kilograms")
+    fat_mass_kg: float = Field(..., description="7-day average of total fat mass in kilograms")
     muscle_mass_kg: float = Field(
         ..., description="7-day average of skeletal muscle mass in kilograms"
     )
-    bone_mass_kg: float = Field(
-        ..., description="7-day average of bone mass in kilograms"
-    )
-    hydration_kg: float = Field(
-        ..., description="7-day average of body water content in kilograms"
-    )
+    bone_mass_kg: float = Field(..., description="7-day average of bone mass in kilograms")
+    hydration_kg: float = Field(..., description="7-day average of body water content in kilograms")
     fat_free_mass_kg: float = Field(
         ..., description="7-day average of fat-free mass (muscles, bones, tissues) in kilograms"
     )
-    body_fat_percent: float = Field(
-        ..., description="7-day average of body fat percentage"
-    )
+    body_fat_percent: float = Field(..., description="7-day average of body fat percentage")
 
 
 class BodyMeasurement(BaseModel):
@@ -89,4 +79,3 @@ class BodyMeasurementsResponse(BaseModel):
 
     measurements: List[BodyMeasurement]
     trends: BodyMetricTrends
-

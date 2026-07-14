@@ -1,0 +1,4 @@
+meta { name: Activity Detail Diagnostic type: http seq: 3 }
+get { url: {{intervals_base_url}}/activity/{{activity_id}} body: none auth: basic }
+auth:basic { username: API_KEY password: {{intervals_api_key}} }
+headers { Accept: application/json }

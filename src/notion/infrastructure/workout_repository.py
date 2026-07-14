@@ -18,9 +18,7 @@ class NotionWorkoutAdapter(WorkoutRepository):
         self._client = client
 
     async def list_recent_workouts(self, days: int) -> List[WorkoutLog]:
-        start = (
-            datetime.now(timezone.utc) - timedelta(days=days)
-        ).date().isoformat()
+        start = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
         payload = {"filter": {"property": "Date", "date": {"on_or_after": start}}}
         response = await self._client.query(self._settings.notion_workout_database_id, payload)
         athlete = await self.fetch_latest_athlete_profile()
@@ -102,20 +100,14 @@ class NotionWorkoutAdapter(WorkoutRepository):
             "Duration [s]": {"number": detail.get("elapsed_time")},
             "Distance [m]": {"number": detail.get("distance")},
             "Elevation [m]": {"number": detail.get("total_elevation_gain")},
-            "Type": {
-                "rich_text": [
-                    {"text": {"content": str(detail.get("type") or "Gym")}}
-                ]
-            },
+            "Type": {"rich_text": [{"text": {"content": str(detail.get("type") or "Gym")}}]},
             "Id": {"number": detail["id"]},
             "Day of week": {"select": {"name": day_of_week}},
         }
 
         self._add_number_prop(props, "Average Cadence", detail.get("average_cadence"))
         self._add_number_prop(props, "Average Watts", detail.get("average_watts"))
-        self._add_number_prop(
-            props, "Weighted Average Watts", detail.get("weighted_average_watts")
-        )
+        self._add_number_prop(props, "Weighted Average Watts", detail.get("weighted_average_watts"))
         self._add_number_prop(props, "Kilojoules", detail.get("kilojoules"))
         self._add_number_prop(props, "Kcal", detail.get("calories"))
         self._add_number_prop(props, "Average Heartrate", detail.get("average_heartrate"))
@@ -168,14 +160,10 @@ class NotionWorkoutAdapter(WorkoutRepository):
         return updated
 
     @classmethod
-    def _metric_update_props(
-        cls, workout: WorkoutLog, updated: WorkoutLog
-    ) -> Dict[str, Any]:
+    def _metric_update_props(cls, workout: WorkoutLog, updated: WorkoutLog) -> Dict[str, Any]:
         props: Dict[str, Any] = {}
         if workout.type != updated.type:
-            props["Type"] = {
-                "rich_text": [{"text": {"content": updated.type}}]
-            }
+            props["Type"] = {"rich_text": [{"text": {"content": updated.type}}]}
         if workout.tss != updated.tss:
             cls._add_number_prop(props, "TSS", updated.tss)
         if workout.intensity_factor != updated.intensity_factor:
@@ -183,9 +171,7 @@ class NotionWorkoutAdapter(WorkoutRepository):
         return props
 
     @staticmethod
-    def _add_number_prop(
-        props: Dict[str, Any], name: str, value: Optional[float]
-    ) -> None:
+    def _add_number_prop(props: Dict[str, Any], name: str, value: Optional[float]) -> None:
         if value is not None:
             props[name] = {"number": value}
 
@@ -295,8 +281,6 @@ class NotionWorkoutAdapter(WorkoutRepository):
         return workout
 
 
-def create_notion_workout_adapter(
-    *, settings: Settings, client: NotionAPI
-) -> WorkoutRepository:
+def create_notion_workout_adapter(*, settings: Settings, client: NotionAPI) -> WorkoutRepository:
     """Create a Notion workout adapter without relying on FastAPI wiring."""
     return NotionWorkoutAdapter(settings=settings, client=client)

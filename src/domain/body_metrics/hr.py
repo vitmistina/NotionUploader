@@ -64,14 +64,10 @@ def estimate_if_tss_from_hr(
     if hr_avg_session <= 0 or hr_max_session <= 0 or hr_max_athlete <= 0:
         return None
 
-    rest_hr = (
-        hr_rest_athlete if hr_rest_athlete is not None and hr_rest_athlete > 0 else 66.0
-    )
+    rest_hr = hr_rest_athlete if hr_rest_athlete is not None and hr_rest_athlete > 0 else 66.0
 
     lthr_guess = 0.90 * hr_max_athlete
-    lthr_candidate = min(
-        lthr_guess, max(0.85 * hr_max_athlete, 0.98 * hr_max_session)
-    )
+    lthr_candidate = min(lthr_guess, max(0.85 * hr_max_athlete, 0.98 * hr_max_session))
     if lthr_candidate <= rest_hr + 10:
         lthr = lthr_guess
     else:

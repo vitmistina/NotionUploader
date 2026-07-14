@@ -21,13 +21,13 @@ from ..application.workouts import (
     ListWorkoutsUseCase,
     SyncWorkoutMetricsUseCase,
 )
+from ..intervals_icu.application import IntervalsSyncCoordinator
+from ..intervals_icu.infrastructure import create_intervals_client_adapter
 from ..notion.application.ports import NutritionRepository, WorkoutRepository
 from ..notion.infrastructure.nutrition_repository import create_notion_nutrition_adapter
 from ..notion.infrastructure.workout_repository import create_notion_workout_adapter
 from ..services.interfaces import NotionAPI
 from ..services.notion import get_notion_client
-from ..strava.application import StravaActivityCoordinator
-from ..strava.infrastructure.client import create_strava_client_adapter
 from ..withings.application import WithingsMeasurementsPort
 from ..withings.infrastructure import create_withings_measurements_adapter
 
@@ -53,17 +53,18 @@ def provide_withings_port(
     return create_withings_measurements_adapter(redis=redis, settings=settings)
 
 
-async def provide_strava_activity_coordinator(
-    redis: RedisClient = Depends(get_redis),
+async def provide_intervals_sync_coordinator(
     settings: Settings = Depends(get_settings),
     workout_repository: WorkoutRepository = Depends(provide_workout_port),
-) -> AsyncIterator[StravaActivityCoordinator]:
-    async with httpx.AsyncClient() as http_client:
-        client = create_strava_client_adapter(
-            http_client=http_client, redis=redis, settings=settings
+) -> AsyncIterator[IntervalsSyncCoordinator]:
+    async with httpx.AsyncClient(timeout=30.0) as http_client:
+        client = create_intervals_client_adapter(http_client=http_client, settings=settings)
+        yield IntervalsSyncCoordinator(
+            client,
+            workout_repository,
+            default_lookback_days=settings.intervals_sync_lookback_days,
+            rouvy_start_date=settings.intervals_rouvy_start_date,
         )
-        coordinator = StravaActivityCoordinator(client, workout_repository)
-        yield coordinator
 
 
 def get_list_workouts_use_case(
@@ -124,7 +125,7 @@ __all__ = [
     "provide_nutrition_port",
     "provide_workout_port",
     "provide_withings_port",
-    "provide_strava_activity_coordinator",
+    "provide_intervals_sync_coordinator",
     "get_list_workouts_use_case",
     "get_sync_workout_metrics_use_case",
     "get_create_manual_workout_use_case",

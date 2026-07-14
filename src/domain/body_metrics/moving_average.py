@@ -22,9 +22,7 @@ def add_moving_average(
         "body_fat_percent",
     ]
 
-    sorted_measurements = sorted(
-        measurements, key=lambda m: m.measurement_time
-    )
+    sorted_measurements = sorted(measurements, key=lambda m: m.measurement_time)
     queues = {metric: deque(maxlen=window) for metric in metrics}
 
     min_values = 3

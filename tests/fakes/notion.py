@@ -23,8 +23,7 @@ class NotionWorkoutFake(NotionAPI):
 
         self._workouts = list(workouts)
         self._pages = {
-            page.get("id", f"page-{index}"): page
-            for index, page in enumerate(self._workouts)
+            page.get("id", f"page-{index}"): page for index, page in enumerate(self._workouts)
         }
         return self
 

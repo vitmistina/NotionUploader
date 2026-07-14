@@ -10,11 +10,10 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from .routes.advice import router as advice_router
+from .routes.intervals import router as intervals_router
 from .routes.metrics import router as metrics_router
 from .routes.nutrition import router as nutrition_router
-from .routes.strava import router as strava_router
 from .routes.workouts import router as workouts_router
-from .strava_webhook import webhook_router
 
 HEALTHZ_LAST_CHECK_KEY = "healthz:last_check_at"
 OPENAPI_HTTP_METHODS = {"get", "put", "post", "delete", "options", "head", "patch", "trace"}
@@ -34,8 +33,7 @@ async def handle_httpx_connect_error(_: Request, exc: httpx.ConnectError) -> JSO
     detail: Dict[str, str] = {
         "error": "UPSTREAM_CONNECTION_FAILED",
         "message": (
-            "Could not connect to an upstream dependency service. "
-            "Please try again shortly."
+            "Could not connect to an upstream dependency service. Please try again shortly."
         ),
     }
     if host:
@@ -63,9 +61,7 @@ async def get_api_schema(request: Request, _: Any = Depends(verify_api_key)) -> 
 def build_openapi_schema(fastapi_app: FastAPI) -> Dict[str, Any]:
     """Return the published OpenAPI schema with API contract extensions."""
     openapi_schema: Dict[str, Any] = fastapi_app.openapi()
-    openapi_schema["servers"] = [
-        {"url": "https://notionuploader-groa.onrender.com"}
-    ]
+    openapi_schema["servers"] = [{"url": "https://notionuploader-groa.onrender.com"}]
     for path_item in openapi_schema.get("paths", {}).values():
         for method, operation in path_item.items():
             if method in OPENAPI_HTTP_METHODS and isinstance(operation, dict):
@@ -79,12 +75,9 @@ for router in (
     metrics_router,
     workouts_router,
     advice_router,
-    strava_router,
+    intervals_router,
 ):
     app.include_router(router, prefix="/v2", dependencies=[Depends(verify_api_key)])
-
-# Strava webhook endpoints (no API key security)
-app.include_router(webhook_router)
 
 
 def _extract_upstream_host(exc: httpx.ConnectError) -> str | None:

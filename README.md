@@ -88,3 +88,37 @@ Run the import boundary checks, linter, and coverage-enabled tests before every 
 ├── uv.lock         # Locked dependency versions resolved by uv
 └── openapi.json    # Generated API contract (keep in sync with code)
 ```
+
+## Intervals.icu workout synchronization
+
+NotionUploader imports workouts from Intervals.icu with `POST /v2/intervals/sync` using the existing `x-api-key` header. Rouvy should synchronize directly to Intervals.icu; Apple Watch and Apple Health workouts should arrive through Intervals Companion. Activities whose Intervals.icu `source` is `STRAVA` are ignored, while other activity types such as `VirtualRide`, `Walk`, and `WeightTraining` are imported.
+
+Required configuration:
+
+- `INTERVALS_API_KEY`: personal Intervals.icu API key (used with Basic Auth username `API_KEY`).
+- `INTERVALS_ATHLETE_ID`: athlete path ID, default `0` for the API-key owner.
+- `INTERVALS_API_BASE_URL`: default `https://intervals.icu/api/v1`.
+- `INTERVALS_SYNC_LOOKBACK_DAYS`: default rolling lookback, `7`.
+- `INTERVALS_ROUVY_START_DATE`: optional `YYYY-MM-DD` direct-Rouvy cutover date. It applies only to `source=OAUTH_CLIENT` and `oauth_client_name=ROUVY`, not to Intervals Companion history.
+
+The endpoint accepts `lookback_days=1..365`. Use the default seven-day rolling scan for normal cron operation, and larger bounded calls such as `lookback_days=365` for deliberate onboarding or Apple Watch historical backfill. The sync is idempotent: direct Intervals activities use negative numeric Notion IDs derived from Intervals IDs, while Intervals Companion activities use the exact UTC start timestamp to merge with manual Apple Watch uploads when the manual upload used the same instant.
+
+The existing Notion schema is unchanged. The Notion properties named `TSS` and `IF` now receive Intervals.icu training load and normalized intensity when available; for non-cycling activities these are generic Intervals metrics rather than strict cycling-only Coggan values.
+
+Linux cron example:
+
+```cron
+15 4 * * * /opt/notion-uploader/sync_intervals.sh >> /var/log/notion-uploader-intervals.log 2>&1
+```
+
+Use a protected environment file or wrapper to export `NOTION_UPLOADER_URL` and `NOTION_UPLOADER_API_KEY`; do not place secrets directly in the crontab.
+
+Apple Shortcut:
+
+- Action: Get Contents of URL
+- URL: `https://notionuploader-groa.onrender.com/v2/intervals/sync`
+- Method: `POST`
+- Header: `x-api-key = <existing API key>`
+- Body: none
+
+Optional immediate/manual URLs include `/v2/intervals/sync?lookback_days=7` and `/v2/intervals/sync?lookback_days=365`.
