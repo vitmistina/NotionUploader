@@ -11,9 +11,7 @@ import httpx
 class NotionAPI(Protocol):
     """Minimal interface for Notion API clients."""
 
-    async def query(
-        self, database_id: str, payload: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def query(self, database_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Query a database and return the raw response."""
 
     async def create(self, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -52,4 +50,3 @@ class WithingsAPI(Protocol):
         self, url: str, *, data: Dict[str, Any]
     ) -> httpx.Response:  # pragma: no cover - thin wrapper
         """Perform a POST request."""
-

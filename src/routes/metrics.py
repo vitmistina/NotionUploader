@@ -12,9 +12,7 @@ router: APIRouter = APIRouter()
 @router.get("/body-measurements", response_model=BodyMeasurementsResponse)
 async def list_body_measurements(
     days: int = Query(7, description="Number of days of measurements to retrieve."),
-    use_case: ListBodyMeasurementsUseCase = Depends(
-        get_list_body_measurements_use_case
-    ),
+    use_case: ListBodyMeasurementsUseCase = Depends(get_list_body_measurements_use_case),
 ) -> BodyMeasurementsResponse:
     """Get body measurements and linear regression trends."""
     return await use_case(days)

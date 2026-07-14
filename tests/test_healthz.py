@@ -88,8 +88,7 @@ async def test_healthz_returns_503_when_upstash_is_unreachable(
     assert response.json() == {
         "error": "UPSTREAM_CONNECTION_FAILED",
         "message": (
-            "Could not connect to an upstream dependency service. "
-            "Please try again shortly."
+            "Could not connect to an upstream dependency service. Please try again shortly."
         ),
         "upstream_host": "redis.example.com",
     }

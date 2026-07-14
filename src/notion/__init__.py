@@ -1,1 +1,1 @@
-﻿"""Notion-related application layers."""
+"""Notion-related application layers."""

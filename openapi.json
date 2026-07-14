@@ -460,6 +460,74 @@
         "x-openai-isConsequential": false,
         "is_consequential": false
       }
+    },
+    "/v2/intervals/sync": {
+      "post": {
+        "tags": [
+          "intervals"
+        ],
+        "summary": "Sync Intervals",
+        "operationId": "sync_intervals_v2_intervals_sync_post",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "lookback_days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 365,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lookback Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntervalsSyncResult"
+                }
+              }
+            }
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntervalsSyncResult"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false,
+        "is_consequential": false
+      }
     }
   },
   "components": {
@@ -762,6 +830,104 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "IntervalsSyncFailure": {
+        "properties": {
+          "activity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Id"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "activity_id",
+          "error"
+        ],
+        "title": "IntervalsSyncFailure"
+      },
+      "IntervalsSyncResult": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "partial_failure"
+            ],
+            "title": "Status"
+          },
+          "oldest": {
+            "type": "string",
+            "format": "date",
+            "title": "Oldest"
+          },
+          "newest": {
+            "type": "string",
+            "format": "date",
+            "title": "Newest"
+          },
+          "lookback_days": {
+            "type": "integer",
+            "title": "Lookback Days"
+          },
+          "discovered": {
+            "type": "integer",
+            "title": "Discovered"
+          },
+          "eligible": {
+            "type": "integer",
+            "title": "Eligible"
+          },
+          "processed": {
+            "type": "integer",
+            "title": "Processed"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "skipped_by_reason": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Skipped By Reason"
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/IntervalsSyncFailure"
+            },
+            "type": "array",
+            "title": "Failures"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "oldest",
+          "newest",
+          "lookback_days",
+          "discovered",
+          "eligible",
+          "processed",
+          "skipped",
+          "failed"
+        ],
+        "title": "IntervalsSyncResult"
       },
       "LinearRegressionResult": {
         "properties": {

@@ -2,11 +2,7 @@ from typing import Dict, Any
 from src.domain.body_metrics.vo2 import vo2max_minutes
 
 
-def make_split(
-    moving_time: float,
-    avg_hr: float,
-    max_hr: float
-) -> Dict[str, Any]:
+def make_split(moving_time: float, avg_hr: float, max_hr: float) -> Dict[str, Any]:
     """Helper to create a split dictionary."""
     return {
         "moving_time": moving_time,
@@ -72,10 +68,10 @@ def test_vo2max_threshold_adjustment():
 
     # With higher threshold (0.90), should register less time
     result_higher = vo2max_minutes(splits, max_hr, vo2_threshold_fraction_of_hrmax=0.90)
-    
+
     # With lower threshold (0.85), should register more time
     result_lower = vo2max_minutes(splits, max_hr, vo2_threshold_fraction_of_hrmax=0.85)
-    
+
     assert result_lower > result_higher
 
 
@@ -84,11 +80,11 @@ def test_vo2max_kinetics_effect():
     max_hr = 190
     short_split = [make_split(30, 170, 180)]  # Short effort
     long_split = [make_split(120, 170, 180)]  # Long effort
-    
+
     # Short effort should get less credit per second than long effort
     short_result = vo2max_minutes(short_split, max_hr)
     long_result = vo2max_minutes(long_split, max_hr)
-    
+
     assert (short_result / 0.5) < (long_result / 2.0)
 
 
@@ -99,10 +95,10 @@ def test_vo2max_peak_influence():
 
     # With no peak influence (0.0)
     result_no_peak = vo2max_minutes(splits, max_hr, peak_influence_cap=0.0)
-    
+
     # With maximum peak influence (1.0)
     result_max_peak = vo2max_minutes(splits, max_hr, peak_influence_cap=1.0)
-    
+
     assert result_no_peak < result_max_peak
     assert result_max_peak > 0  # Should get some credit with max peak influence
 

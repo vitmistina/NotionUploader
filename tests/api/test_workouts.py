@@ -41,7 +41,7 @@ async def test_get_workout_logs(
             "TSS": {"number": 50.0},
             "IF": {"number": 0.85},
             "Notes": {"rich_text": [{"text": {"content": "Great ride"}}]},
-        }
+        },
     }
     profile_page = {
         "properties": {

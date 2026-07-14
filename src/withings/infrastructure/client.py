@@ -1,4 +1,5 @@
 """HTTP-backed implementation of the Withings measurements port."""
+
 from __future__ import annotations
 
 import time
@@ -35,9 +36,7 @@ class WithingsMeasurementsAdapter(WithingsMeasurementsPort):
         }
 
         async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self._settings.wbsapi_url}/v2/oauth2", data=payload
-            )
+            response = await client.post(f"{self._settings.wbsapi_url}/v2/oauth2", data=payload)
 
         if response.status_code != 200:
             raise RuntimeError("Failed to refresh Withings access token")
@@ -56,9 +55,7 @@ class WithingsMeasurementsAdapter(WithingsMeasurementsPort):
 
         # Access token expires in specified time minus 30s buffer
         if expires_in:
-            self._redis.set(
-                "withings_access_token", new_access_token, ex=int(expires_in) - 30
-            )
+            self._redis.set("withings_access_token", new_access_token, ex=int(expires_in) - 30)
         else:
             self._redis.set("withings_access_token", new_access_token)
 
@@ -109,8 +106,7 @@ class WithingsMeasurementsAdapter(WithingsMeasurementsPort):
         for group in measuregroups:
             measurement_time = datetime.fromtimestamp(group.get("date", 0))
             measures = {
-                m["type"]: m["value"] * (10 ** m["unit"])
-                for m in group.get("measures", [])
+                m["type"]: m["value"] * (10 ** m["unit"]) for m in group.get("measures", [])
             }
             measurements.append(
                 BodyMeasurement(

@@ -45,13 +45,9 @@ class GetDailyNutritionEntriesUseCase:
     async def __call__(self, date: str, timezone: str) -> NutritionSummaryResponse:
         entries = await self.repository.list_entries_on_date(date)
         summary = self.summary_builder(date, entries)
-        day_summary = DailyNutritionSummaryWithEntries(
-            **summary.model_dump(), entries=entries
-        )
+        day_summary = DailyNutritionSummaryWithEntries(**summary.model_dump(), entries=entries)
         local_time, part = self.time_provider(timezone)
-        return NutritionSummaryResponse(
-            days=[day_summary], local_time=local_time, part_of_day=part
-        )
+        return NutritionSummaryResponse(days=[day_summary], local_time=local_time, part_of_day=part)
 
 
 @dataclass

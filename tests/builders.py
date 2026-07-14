@@ -33,7 +33,9 @@ def make_notion_profile(properties: Dict[str, Any] | None = None) -> Dict[str, A
     return {"properties": base_properties}
 
 
-def make_notion_workout(*, id: str | None = None, properties: Dict[str, Any] | None = None, **overrides: Any) -> Dict[str, Any]:
+def make_notion_workout(
+    *, id: str | None = None, properties: Dict[str, Any] | None = None, **overrides: Any
+) -> Dict[str, Any]:
     """Build a Notion workout page with nested property overrides."""
 
     base: Dict[str, Any] = {

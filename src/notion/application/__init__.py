@@ -1,1 +1,1 @@
-﻿"""Application layer ports."""
+"""Application layer ports."""

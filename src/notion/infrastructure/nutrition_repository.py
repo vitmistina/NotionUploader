@@ -35,13 +35,9 @@ class NotionNutritionAdapter(NutritionRepository):
         await self._client.create(payload)
 
     async def list_entries_on_date(self, date: str) -> List[NutritionEntry]:
-        return await self._query_entries(
-            {"property": "Date", "date": {"equals": date}}
-        )
+        return await self._query_entries({"property": "Date", "date": {"equals": date}})
 
-    async def list_entries_in_range(
-        self, start_date: str, end_date: str
-    ) -> List[NutritionEntry]:
+    async def list_entries_in_range(self, start_date: str, end_date: str) -> List[NutritionEntry]:
         return await self._query_entries(
             {
                 "and": [

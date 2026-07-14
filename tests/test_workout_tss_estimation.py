@@ -20,9 +20,7 @@ class WorkoutRepositoryStub(WorkoutRepository):
     async def fetch_latest_athlete_profile(self):
         return self.athlete_profile
 
-    async def save_workout(
-        self, detail, attachment, hr_drift, vo2max, tss, intensity_factor
-    ):
+    async def save_workout(self, detail, attachment, hr_drift, vo2max, tss, intensity_factor):
         self.saved_workouts.append(
             {
                 "detail": detail,

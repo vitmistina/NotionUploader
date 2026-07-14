@@ -17,12 +17,13 @@ from fastapi import FastAPI
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src import main
+from src.intervals_icu.application import IntervalsSyncResult
 from src.services.interfaces import NotionAPI
 from src.services.notion import get_notion_client
 from platform.clients import RedisClient, get_redis
 from platform.config import Settings, get_settings
 from src.platform.wiring import (
-    provide_strava_activity_coordinator,
+    provide_intervals_sync_coordinator,
     provide_withings_port,
 )
 from src.withings.application.ports import WithingsMeasurementsPort
@@ -76,9 +77,7 @@ class RedisFake(RedisClient):
         last_key, last_value, last_ex = self._last_set
         assert last_key == key, f"Expected last set for {key!r}, saw {last_key!r}"
         if value is not None:
-            assert (
-                last_value == value
-            ), f"Expected last set value {value!r}, saw {last_value!r}"
+            assert last_value == value, f"Expected last set value {value!r}, saw {last_value!r}"
         if ex is not None:
             assert last_ex == ex, f"Expected last set ex {ex!r}, saw {last_ex!r}"
 
@@ -87,8 +86,7 @@ class RedisFake(RedisClient):
 
         pending = []
         pending.extend(
-            f"get(key={key!r}, returns={returns!r})"
-            for key, returns in self._expected_gets
+            f"get(key={key!r}, returns={returns!r})" for key, returns in self._expected_gets
         )
         pending.extend(
             f"set(key={key!r}, value={value!r}, ex={ex!r})"
@@ -101,9 +99,7 @@ class RedisFake(RedisClient):
         if self._expected_gets:
             expected_key, returns = self._expected_gets.pop(0)
             if expected_key is not None and expected_key != key:
-                raise AssertionError(
-                    f"Expected get({expected_key!r}) but received get({key!r})"
-                )
+                raise AssertionError(f"Expected get({expected_key!r}) but received get({key!r})")
             if returns is not None:
                 self.store[key] = returns
             return returns
@@ -118,13 +114,9 @@ class RedisFake(RedisClient):
                     f"Expected set({expected_key!r}, …) but received set({key!r}, …)"
                 )
             if expected_value is not None and expected_value != value:
-                raise AssertionError(
-                    f"Expected set value {expected_value!r}, saw {value!r}"
-                )
+                raise AssertionError(f"Expected set value {expected_value!r}, saw {value!r}")
             if expected_ex is not _MISSING and expected_ex != ex:
-                raise AssertionError(
-                    f"Expected set expiration {expected_ex!r}, saw {ex!r}"
-                )
+                raise AssertionError(f"Expected set expiration {expected_ex!r}, saw {ex!r}")
         self.store[key] = value
         self.expirations[key] = ex
 
@@ -158,9 +150,7 @@ class NotionAPIStub(NotionAPI):
         raises: Exception | None = None,
     ) -> "NotionAPIStub":
         self._expectations["query"].append(
-            _Expectation(
-                {"database_id": database_id, "payload": payload}, returns, raises
-            )
+            _Expectation({"database_id": database_id, "payload": payload}, returns, raises)
         )
         return self
 
@@ -171,9 +161,7 @@ class NotionAPIStub(NotionAPI):
         returns: Any = None,
         raises: Exception | None = None,
     ) -> "NotionAPIStub":
-        self._expectations["create"].append(
-            _Expectation({"payload": payload}, returns, raises)
-        )
+        self._expectations["create"].append(_Expectation({"payload": payload}, returns, raises))
         return self
 
     def expect_update(
@@ -196,9 +184,7 @@ class NotionAPIStub(NotionAPI):
         returns: Any = None,
         raises: Exception | None = None,
     ) -> "NotionAPIStub":
-        self._expectations["retrieve"].append(
-            _Expectation({"page_id": page_id}, returns, raises)
-        )
+        self._expectations["retrieve"].append(_Expectation({"page_id": page_id}, returns, raises))
         return self
 
     def assert_last_query(
@@ -266,13 +252,13 @@ class NotionAPIStub(NotionAPI):
         _, recorded_payload = self._last_calls[name]
         if identifier is not None:
             target_key = "database_id" if name == "query" else "page_id"
-            assert (
-                recorded_payload.get(target_key) == identifier
-            ), f"Expected last {name} {target_key}={identifier!r}"
+            assert recorded_payload.get(target_key) == identifier, (
+                f"Expected last {name} {target_key}={identifier!r}"
+            )
         if payload is not None:
-            assert (
-                recorded_payload.get("payload") == payload
-            ), f"Expected last {name} payload to match"
+            assert recorded_payload.get("payload") == payload, (
+                f"Expected last {name} payload to match"
+            )
 
     def last_query_payload(self) -> Dict[str, Any] | None:
         return self._last_payload("query")
@@ -332,9 +318,9 @@ class WithingsPortFake(WithingsMeasurementsPort):
     def assert_last_fetch(self, days: int | None = None) -> None:
         assert self._last_fetch is not None, "fetch_measurements() was not called"
         if days is not None:
-            assert (
-                self._last_fetch[0] == days
-            ), f"Expected fetch_measurements({days}), saw {self._last_fetch[0]}"
+            assert self._last_fetch[0] == days, (
+                f"Expected fetch_measurements({days}), saw {self._last_fetch[0]}"
+            )
 
     def assert_no_pending_expectations(self) -> None:
         """Assert all queued Withings expectations were consumed."""
@@ -367,57 +353,59 @@ class WithingsPortFake(WithingsMeasurementsPort):
             expectation = self._expected_fetch.pop(0)
             expected_days = expectation.expected.get("days")
             if expected_days is not None and expected_days != days:
-                raise AssertionError(
-                    f"Expected fetch_measurements({expected_days}) but got {days}"
-                )
+                raise AssertionError(f"Expected fetch_measurements({expected_days}) but got {days}")
             if expectation.raises:
                 raise expectation.raises
             return expectation.returns
         return []
 
 
-class StravaCoordinatorSpy:
-    """Spy double for ``StravaActivityCoordinator`` interactions."""
+
+class IntervalsSyncCoordinatorSpy:
+    """Spy double for ``IntervalsSyncCoordinator`` interactions."""
 
     def __init__(self) -> None:
-        self._expected_process: list[_Expectation] = []
-        self.processed: list[int] = []
+        self.requested_lookbacks: list[int | None] = []
+        self._results: list[IntervalsSyncResult] = []
+        self._expected_lookbacks: list[int | None] = []
 
-    def expect_process_activity(
-        self, activity_id: int | None = None, *, raises: Exception | None = None
-    ) -> "StravaCoordinatorSpy":
-        self._expected_process.append(
-            _Expectation({"activity_id": activity_id}, raises=raises)
-        )
+    def expect_sync(
+        self, *, lookback_days: int | None, returns: IntervalsSyncResult
+    ) -> "IntervalsSyncCoordinatorSpy":
+        self._expected_lookbacks.append(lookback_days)
+        self._results.append(returns)
         return self
 
-    def assert_last_process_activity(self, activity_id: int | None = None) -> None:
-        assert self.processed, "process_activity() was not invoked"
-        if activity_id is not None:
-            assert (
-                self.processed[-1] == activity_id
-            ), f"Expected last processed {activity_id}, saw {self.processed[-1]}"
+    def assert_last_sync(self, lookback_days: int | None = None) -> None:
+        assert self.requested_lookbacks, "sync_recent() was not invoked"
+        assert self.requested_lookbacks[-1] == lookback_days
 
     def assert_no_pending_expectations(self) -> None:
-        """Assert all queued Strava coordinator expectations were consumed."""
+        pending = [f"sync_recent(lookback_days={value!r})" for value in self._expected_lookbacks]
+        assert not pending, "Unconsumed Intervals expectations: " + "; ".join(pending)
 
-        pending = [
-            f"process_activity({expectation.expected!r}, raises={expectation.raises!r})"
-            for expectation in self._expected_process
-        ]
-        assert not pending, "Unconsumed Strava coordinator expectations: " + "; ".join(pending)
-
-    async def process_activity(self, activity_id: int) -> None:
-        self.processed.append(activity_id)
-        if self._expected_process:
-            expectation = self._expected_process.pop(0)
-            expected_id = expectation.expected.get("activity_id")
-            if expected_id is not None and expected_id != activity_id:
+    async def sync_recent(self, lookback_days: int | None = None) -> IntervalsSyncResult:
+        self.requested_lookbacks.append(lookback_days)
+        if self._results:
+            expected = self._expected_lookbacks.pop(0)
+            if expected != lookback_days:
                 raise AssertionError(
-                    f"Expected process_activity({expected_id}) but got {activity_id}"
+                    f"Expected sync_recent(lookback_days={expected!r}) but got {lookback_days!r}"
                 )
-            if expectation.raises:
-                raise expectation.raises
+            return self._results.pop(0)
+        from datetime import date
+
+        return IntervalsSyncResult(
+            status="ok",
+            oldest=date(2026, 7, 7),
+            newest=date(2026, 7, 14),
+            lookback_days=lookback_days or 7,
+            discovered=0,
+            eligible=0,
+            processed=0,
+            skipped=0,
+            failed=0,
+        )
 
 
 @pytest.fixture
@@ -430,14 +418,12 @@ def settings() -> Settings:
         notion_database_id="notion-db",
         notion_workout_database_id="workout-db",
         notion_athlete_profile_database_id="profile-db",
-        strava_verify_token="verify-token",
         wbsapi_url="https://wbs.example.com",
         upstash_redis_rest_url="https://redis.example.com",
         upstash_redis_rest_token="redis-token",
         withings_client_id="withings-client",
         withings_client_secret="withings-secret",
-        strava_client_id="strava-client",
-        strava_client_secret="strava-secret",
+        intervals_api_key="intervals-secret",
     )
 
 
@@ -470,8 +456,8 @@ def notion_workout_fake(settings: Settings) -> NotionWorkoutFake:
 
 
 @pytest.fixture
-def strava_coordinator_spy() -> Iterator[StravaCoordinatorSpy]:
-    spy = StravaCoordinatorSpy()
+def intervals_sync_coordinator_spy() -> Iterator[IntervalsSyncCoordinatorSpy]:
+    spy = IntervalsSyncCoordinatorSpy()
     yield spy
     spy.assert_no_pending_expectations()
 
@@ -482,7 +468,7 @@ def app(
     redis_fake: RedisFake,
     notion_api_stub: NotionAPIStub,
     withings_port_fake: WithingsPortFake,
-    strava_coordinator_spy: StravaCoordinatorSpy,
+    intervals_sync_coordinator_spy: IntervalsSyncCoordinatorSpy,
 ) -> Iterator[FastAPI]:
     """Configured FastAPI application instance for integration tests."""
 
@@ -492,7 +478,7 @@ def app(
         get_redis: lambda: redis_fake,
         get_notion_client: lambda: notion_api_stub,
         provide_withings_port: lambda: withings_port_fake,
-        provide_strava_activity_coordinator: lambda: strava_coordinator_spy,
+        provide_intervals_sync_coordinator: lambda: intervals_sync_coordinator_spy,
     }
     app.dependency_overrides.update(overrides)
     try:
@@ -503,9 +489,7 @@ def app(
 
 
 @pytest.fixture
-def client(
-    app: FastAPI, event_loop: asyncio.AbstractEventLoop
-) -> Iterator[httpx.AsyncClient]:
+def client(app: FastAPI, event_loop: asyncio.AbstractEventLoop) -> Iterator[httpx.AsyncClient]:
     """Async HTTP client bound to the FastAPI app."""
 
     transport = httpx.ASGITransport(app=app)
@@ -555,10 +539,7 @@ def freeze_time(monkeypatch: pytest.MonkeyPatch) -> FrozenClock:
                 return clock.current
             return clock.current.astimezone(tz)
 
-    monkeypatch.setattr(
-        "src.notion.infrastructure.workout_repository.datetime", _FrozenDateTime
-    )
+    monkeypatch.setattr("src.notion.infrastructure.workout_repository.datetime", _FrozenDateTime)
     monkeypatch.setattr("time.time", lambda: clock.timestamp(), raising=False)
 
     return clock
-

@@ -32,6 +32,7 @@ def assert_metric_update_payload(
     assert properties["TSS"]["number"] == pytest.approx(expected_tss)
     assert properties["IF"]["number"] == pytest.approx(expected_intensity_factor)
 
+
 @pytest.mark.asyncio
 async def test_fetch_workouts_includes_minimal_entries(
     settings: Settings,
@@ -113,16 +114,12 @@ async def test_list_recent_workouts_backfills_metrics(
 
     assert workouts[0].type == "Gym"
     assert workouts[0].tss == pytest.approx(EXPECTED_BACKFILL_TSS)
-    assert workouts[0].intensity_factor == pytest.approx(
-        EXPECTED_BACKFILL_INTENSITY_FACTOR
-    )
+    assert workouts[0].intensity_factor == pytest.approx(EXPECTED_BACKFILL_INTENSITY_FACTOR)
     assert workouts[0].page_id == "page-backfill"
 
     page_id, payload = notion_workout_fake.updates()[-1]
     assert page_id == "page-backfill"
-    assert payload["properties"]["Type"] == {
-        "rich_text": [{"text": {"content": "Gym"}}]
-    }
+    assert payload["properties"]["Type"] == {"rich_text": [{"text": {"content": "Gym"}}]}
     assert_metric_update_payload(
         payload,
         expected_tss=EXPECTED_BACKFILL_TSS,
@@ -228,9 +225,7 @@ async def test_save_workout_creates_new_notion_page(
     assert properties["Date"] == {"date": {"start": "2026-05-10"}}
     assert properties["Day of week"] == {"select": {"name": "Sunday"}}
     assert properties["Type"] == {"rich_text": [{"text": {"content": "Ride"}}]}
-    assert properties["Notes"] == {
-        "rich_text": [{"text": {"content": "Sunny endurance ride"}}]
-    }
+    assert properties["Notes"] == {"rich_text": [{"text": {"content": "Sunny endurance ride"}}]}
     assert properties["TSS"] == {"number": 55.0}
     assert properties["IF"] == {"number": 0.75}
 

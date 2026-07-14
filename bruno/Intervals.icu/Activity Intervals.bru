@@ -1,0 +1,4 @@
+meta { name: Activity Intervals type: http seq: 2 }
+get { url: {{intervals_base_url}}/activity/{{activity_id}}/intervals body: none auth: basic }
+auth:basic { username: API_KEY password: {{intervals_api_key}} }
+headers { Accept: application/json }

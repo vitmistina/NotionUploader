@@ -1,0 +1,3 @@
+meta { name: Trigger Sync type: http seq: 4 }
+post { url: {{notion_uploader_url}}/v2/intervals/sync body: none auth: none }
+headers { x-api-key: {{notion_uploader_api_key}} }

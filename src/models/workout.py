@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class Workout(BaseModel):
-    """Simplified representation of a Strava workout."""
+    """Simplified representation of a workout."""
 
     id: int
     name: str
@@ -16,21 +16,13 @@ class Workout(BaseModel):
     distance_m: float = Field(..., description="Distance in meters")
     moving_time_s: int = Field(..., description="Moving time in seconds")
     elapsed_time_s: int = Field(..., description="Elapsed time in seconds")
-    total_elevation_gain_m: float = Field(
-        ..., description="Total elevation gain in meters"
-    )
+    total_elevation_gain_m: float = Field(..., description="Total elevation gain in meters")
     average_speed_mps: Optional[float] = Field(
         None, description="Average speed in meters per second"
     )
-    max_speed_mps: Optional[float] = Field(
-        None, description="Maximum speed in meters per second"
-    )
-    average_watts: Optional[float] = Field(
-        None, description="Average power output in watts"
-    )
-    kilojoules: Optional[float] = Field(
-        None, description="Total work done in kilojoules"
-    )
+    max_speed_mps: Optional[float] = Field(None, description="Maximum speed in meters per second")
+    average_watts: Optional[float] = Field(None, description="Average power output in watts")
+    kilojoules: Optional[float] = Field(None, description="Total work done in kilojoules")
     device_watts: Optional[bool] = Field(
         None, description="True if power data comes from a power meter"
     )
@@ -43,7 +35,7 @@ class Workout(BaseModel):
 
     @classmethod
     def from_api(cls, data: Dict[str, Any]) -> "Workout":
-        """Create a Workout model from Strava API activity data."""
+        """Create a Workout model from provider activity data."""
         return cls(
             id=data.get("id"),
             name=data.get("name", ""),
@@ -61,18 +53,6 @@ class Workout(BaseModel):
             average_heartrate=data.get("average_heartrate"),
             max_heartrate=data.get("max_heartrate"),
         )
-
-
-class StravaEvent(BaseModel):
-    """Payload sent by Strava webhook."""
-
-    aspect_type: str
-    event_time: int
-    object_id: int
-    object_type: str
-    owner_id: int
-    subscription_id: int
-    updates: Dict[str, Any] | None = None
 
 
 class WorkoutLog(BaseModel):
@@ -103,9 +83,7 @@ class ManualWorkoutSubmission(BaseModel):
     """Payload describing a manually logged workout extracted by a GPT agent."""
 
     name: str = Field(..., description="Human-readable workout name or summary.")
-    start_time: datetime = Field(
-        ..., description="UTC timestamp when the workout began."
-    )
+    start_time: datetime = Field(..., description="UTC timestamp when the workout began.")
     duration_minutes: float = Field(
         ..., gt=0, description="Total session duration expressed in minutes."
     )
@@ -128,25 +106,17 @@ class ManualWorkoutSubmission(BaseModel):
     calories: Optional[float] = Field(
         None, description="Estimated calories expended during the session."
     )
-    notes: Optional[str] = Field(
-        None, description="Free-form notes or description of the workout."
-    )
+    notes: Optional[str] = Field(None, description="Free-form notes or description of the workout.")
     id: Optional[int] = Field(
         None,
         description="Optional numeric identifier used for deduplicating entries.",
     )
-    average_cadence: Optional[float] = Field(
-        None, description="Optional average cadence data."
-    )
-    average_watts: Optional[float] = Field(
-        None, description="Optional average power in watts."
-    )
+    average_cadence: Optional[float] = Field(None, description="Optional average cadence data.")
+    average_watts: Optional[float] = Field(None, description="Optional average power in watts.")
     weighted_average_watts: Optional[float] = Field(
         None, description="Optional weighted average power in watts."
     )
-    kilojoules: Optional[float] = Field(
-        None, description="Optional total work in kilojoules."
-    )
+    kilojoules: Optional[float] = Field(None, description="Optional total work in kilojoules.")
     tss: Optional[float] = Field(
         None, description="Optional Training Stress Score if already calculated."
     )
@@ -200,5 +170,3 @@ class ManualWorkoutSubmission(BaseModel):
             detail["total_elevation_gain"] = 0.0
 
         return detail
-
-

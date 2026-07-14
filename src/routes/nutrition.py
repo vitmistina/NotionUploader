@@ -22,9 +22,7 @@ router: APIRouter = APIRouter()
 @router.post("/nutrition-entries", status_code=201, response_model=OperationStatus)
 async def create_nutrition_entry(
     entry: NutritionEntry,
-    use_case: CreateNutritionEntryUseCase = Depends(
-        get_create_nutrition_entry_use_case
-    ),
+    use_case: CreateNutritionEntryUseCase = Depends(get_create_nutrition_entry_use_case),
 ) -> OperationStatus:
     return await use_case(entry)
 
@@ -36,9 +34,7 @@ async def create_nutrition_entry(
 async def list_daily_nutrition_entries(
     date: str = Path(..., description="Date to fetch in YYYY-MM-DD format."),
     timezone: str = timezone_query,
-    use_case: GetDailyNutritionEntriesUseCase = Depends(
-        get_daily_nutrition_entries_use_case
-    ),
+    use_case: GetDailyNutritionEntriesUseCase = Depends(get_daily_nutrition_entries_use_case),
 ) -> NutritionSummaryResponse:
     return await use_case(date, timezone)
 
@@ -49,10 +45,12 @@ async def list_daily_nutrition_entries(
 )
 async def list_nutrition_entries_by_period(
     start_date: str = Query(
-        ..., description="Start date (inclusive) in YYYY-MM-DD format.",
+        ...,
+        description="Start date (inclusive) in YYYY-MM-DD format.",
     ),
     end_date: str = Query(
-        ..., description="End date (inclusive) in YYYY-MM-DD format.",
+        ...,
+        description="End date (inclusive) in YYYY-MM-DD format.",
     ),
     timezone: str = timezone_query,
     use_case: GetNutritionEntriesByPeriodUseCase = Depends(

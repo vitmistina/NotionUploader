@@ -43,7 +43,7 @@ def make_nutrition_page(**overrides: Any) -> Dict[str, Any]:
             "Fat (g)": {"number": 0.3},
             "Meal Type": {"select": {"name": "Snack"}},
             "Notes": {"rich_text": [{"text": {"content": "Fresh"}}]},
-        }
+        },
     }
     properties = page["properties"]
 
@@ -70,9 +70,7 @@ def make_nutrition_page(**overrides: Any) -> Dict[str, Any]:
             override_value = overrides.pop(key)
             match key:
                 case "food_item":
-                    properties[value] = {
-                        "title": [{"text": {"content": override_value}}]
-                    }
+                    properties[value] = {"title": [{"text": {"content": override_value}}]}
                 case "date":
                     properties[value] = {"date": {"start": override_value}}
                 case "meal_type":
@@ -85,9 +83,7 @@ def make_nutrition_page(**overrides: Any) -> Dict[str, Any]:
     return page
 
 
-def build_nutrition_create_payload(
-    settings: Settings, payload: Dict[str, Any]
-) -> Dict[str, Any]:
+def build_nutrition_create_payload(settings: Settings, payload: Dict[str, Any]) -> Dict[str, Any]:
     """Build the Notion create payload expected from a nutrition request."""
 
     properties: Dict[str, Any] = {
@@ -131,9 +127,7 @@ def make_strava_event(**overrides: Any) -> Dict[str, Any]:
     return event
 
 
-def encode_signed_strava_event(
-    event: Dict[str, Any], *, client_secret: str
-) -> tuple[bytes, str]:
+def encode_signed_strava_event(event: Dict[str, Any], *, client_secret: str) -> tuple[bytes, str]:
     """Serialize an event and compute the Strava signature."""
 
     body = json.dumps(event, separators=(",", ":"), sort_keys=True).encode()

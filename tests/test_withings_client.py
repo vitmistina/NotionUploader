@@ -33,14 +33,12 @@ TEST_SETTINGS = Settings(
     notion_database_id="db",
     notion_workout_database_id="workout-db",
     notion_athlete_profile_database_id="profile-db",
-    strava_verify_token="verify",
     wbsapi_url="https://withings.example.com",
     upstash_redis_rest_url="https://redis.example.com",
     upstash_redis_rest_token="token",
     withings_client_id="withings-client",
     withings_client_secret="withings-secret",
-    strava_client_id="strava-client",
-    strava_client_secret="strava-secret",
+    intervals_api_key="intervals-secret",
 )
 
 
@@ -136,9 +134,7 @@ async def test_refresh_access_token_missing_access_token(respx_mock: respx.Route
 
     client = WithingsMeasurementsAdapter(redis=redis, settings=TEST_SETTINGS)
 
-    with pytest.raises(
-        RuntimeError, match="Withings refresh response missing access token"
-    ):
+    with pytest.raises(RuntimeError, match="Withings refresh response missing access token"):
         await client.refresh_access_token()
 
     assert redis.store == {"withings_refresh_token": "refresh-token"}

@@ -1,1 +1,1 @@
-﻿"""Infrastructure adapters for Notion."""
+"""Infrastructure adapters for Notion."""

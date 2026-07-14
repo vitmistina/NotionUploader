@@ -47,8 +47,6 @@ async def sync_workout_metrics(
 )
 async def create_manual_workout(
     submission: ManualWorkoutSubmission,
-    use_case: CreateManualWorkoutUseCase = Depends(
-        get_create_manual_workout_use_case
-    ),
+    use_case: CreateManualWorkoutUseCase = Depends(get_create_manual_workout_use_case),
 ) -> OperationStatus:
     return await use_case(submission)

@@ -118,9 +118,7 @@ async def test_get_foods_range(
         },
         returns={
             "results": [
-                make_nutrition_page(
-                    food_item="A", calories=100, protein_g=10, carbs_g=20, fat_g=5
-                )
+                make_nutrition_page(food_item="A", calories=100, protein_g=10, carbs_g=20, fat_g=5)
             ],
             "has_more": True,
             "next_cursor": "cursor1",

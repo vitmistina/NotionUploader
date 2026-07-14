@@ -19,13 +19,14 @@ pytestmark = pytest.mark.asyncio
     ],
 )
 async def test_api_schema_auth_contract(
-    client: httpx.AsyncClient, settings: Settings, headers: dict[str, str] | str, expected_status: int
+    client: httpx.AsyncClient,
+    settings: Settings,
+    headers: dict[str, str] | str,
+    expected_status: int,
 ) -> None:
     """The API schema endpoint enforces the x-api-key contract."""
 
-    request_headers = (
-        {"x-api-key": settings.api_key} if isinstance(headers, str) else headers
-    )
+    request_headers = {"x-api-key": settings.api_key} if isinstance(headers, str) else headers
 
     response = await client.get("/v2/api-schema", headers=request_headers)
 
@@ -48,4 +49,6 @@ async def test_openapi_schema(client: httpx.AsyncClient, settings: Settings) -> 
             assert operation["x-openai-isConsequential"] is False
             assert operation["is_consequential"] is False
             if "parameters" in operation:
-                assert all(parameter["name"] != "x-api-key" for parameter in operation["parameters"])
+                assert all(
+                    parameter["name"] != "x-api-key" for parameter in operation["parameters"]
+                )
