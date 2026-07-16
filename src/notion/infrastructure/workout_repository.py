@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from platform.config import Settings
 from typing import Any, Dict, List, Optional
 
 from ...domain.body_metrics.hr import estimate_if_tss_from_hr
+from ...models.advice_context import AdviceAthleteProfile
 from ...models.workout import WorkoutLog
 from ...services.interfaces import NotionAPI
 from ..application.ports import WorkoutRepository
@@ -39,7 +40,32 @@ class NotionWorkoutAdapter(WorkoutRepository):
                 workouts.append(updated)
         return workouts
 
-    async def fetch_latest_athlete_profile(self) -> Dict[str, Any]:
+    async def list_workouts_in_range(
+        self, start_date: date, end_date: date, timezone_name: str
+    ) -> List[WorkoutLog]:
+        """Read every workout page in an explicit range without mutating Notion."""
+        _ = timezone_name
+        payload: Dict[str, Any] = {
+            "filter": {
+                "and": [
+                    {"property": "Date", "date": {"on_or_after": start_date.isoformat()}},
+                    {"property": "Date", "date": {"on_or_before": end_date.isoformat()}},
+                ]
+            }
+        }
+        workouts: List[WorkoutLog] = []
+        while True:
+            response = await self._client.query(self._settings.notion_workout_database_id, payload)
+            for page in response.get("results", []):
+                workout = self._parse_workout_page(page)
+                if workout is not None:
+                    workouts.append(workout)
+            if not response.get("has_more"):
+                break
+            payload["start_cursor"] = response.get("next_cursor")
+        return workouts
+
+    async def fetch_latest_athlete_profile(self) -> AdviceAthleteProfile:
         payload = {
             "sorts": [{"property": "Date", "direction": "descending"}],
             "page_size": 1,
@@ -49,13 +75,30 @@ class NotionWorkoutAdapter(WorkoutRepository):
         )
         results = response.get("results", [])
         if not results:
-            return {}
+            return AdviceAthleteProfile()
         props = results[0].get("properties", {})
-        return {
-            "ftp": props.get("FTP Watts", {}).get("number"),
-            "weight": props.get("Weight Kg", {}).get("number"),
-            "max_hr": props.get("Max HR", {}).get("number"),
-        }
+        return AdviceAthleteProfile(
+            ftp=props.get("FTP Watts", {}).get("number"),
+            weight=props.get("Weight Kg", {}).get("number"),
+            max_hr=props.get("Max HR", {}).get("number"),
+            resting_hr=props.get("Resting HR", {}).get("number"),
+            protein_min_g=props.get("Protein Minimum (g)", {}).get("number"),
+            protein_target_g=props.get("Protein Target (g)", {}).get("number"),
+            calorie_target_kcal=props.get("Calorie Target (kcal)", {}).get("number"),
+            fat_min_g=props.get("Fat Minimum (g)", {}).get("number"),
+            fat_max_g=props.get("Fat Maximum (g)", {}).get("number"),
+            weekly_cycling_hours_target=props.get("Weekly Cycling Hours Target", {}).get("number"),
+            weekly_cycling_load_target=props.get("Weekly Cycling Load Target", {}).get("number"),
+            weekly_strength_sessions_target=props.get("Weekly Strength Sessions Target", {}).get(
+                "number"
+            ),
+            timezone=props.get("Timezone", {})
+            .get("rich_text", [{}])[0]
+            .get("text", {})
+            .get("content")
+            if props.get("Timezone", {}).get("rich_text")
+            else None,
+        )
 
     async def save_workout(
         self,
@@ -68,22 +111,14 @@ class NotionWorkoutAdapter(WorkoutRepository):
         intensity_factor: Optional[float] = None,
     ) -> None:
         if intensity_factor is None or tss is None:
-            athlete = await self.fetch_latest_athlete_profile()
-            hr_max_athlete = athlete.get("max_hr")
-            hr_rest_athlete = athlete.get("resting_hr")
-            estimate = estimate_if_tss_from_hr(
-                hr_avg_session=detail.get("average_heartrate"),
-                hr_max_session=detail.get("max_heartrate"),
-                dur_s=detail.get("moving_time") or detail.get("elapsed_time"),
-                hr_max_athlete=hr_max_athlete,
-                hr_rest_athlete=hr_rest_athlete,
-                kcal=detail.get("calories"),
-            )
+            estimate = await self._estimate_metrics(detail)
             if estimate:
                 if intensity_factor is None:
                     intensity_factor = estimate[0]
                 if tss is None:
                     tss = estimate[1]
+
+        tss_origin, load_family = self._resolve_load_provenance(detail, tss)
 
         start_date = detail.get("start_date")
         date_only = (
@@ -104,6 +139,14 @@ class NotionWorkoutAdapter(WorkoutRepository):
             "Id": {"number": detail["id"]},
             "Day of week": {"select": {"name": day_of_week}},
         }
+        self._add_date_prop(props, "Start Time", detail.get("start_date"))
+        self._add_text_prop(props, "External ID", detail.get("external_id"))
+        self._add_text_prop(props, "Provider Source", detail.get("provider_source"))
+        self._add_text_prop(props, "Provider Client", detail.get("provider_client_name"))
+        self._add_text_prop(props, "Device", detail.get("device_name"))
+        self._add_text_prop(props, "Payload Key", detail.get("payload_key"))
+        self._add_text_prop(props, "TSS Origin", tss_origin)
+        self._add_text_prop(props, "Load Family", load_family)
 
         self._add_number_prop(props, "Average Cadence", detail.get("average_cadence"))
         self._add_number_prop(props, "Average Watts", detail.get("average_watts"))
@@ -139,6 +182,40 @@ class NotionWorkoutAdapter(WorkoutRepository):
             "properties": props,
         }
         await self._client.create(payload)
+
+    async def _estimate_metrics(self, detail: Dict[str, Any]) -> Optional[tuple[float, float]]:
+        athlete = await self.fetch_latest_athlete_profile()
+        return estimate_if_tss_from_hr(
+            hr_avg_session=detail.get("average_heartrate"),
+            hr_max_session=detail.get("max_heartrate"),
+            dur_s=detail.get("moving_time") or detail.get("elapsed_time"),
+            hr_max_athlete=athlete.get("max_hr"),
+            hr_rest_athlete=athlete.get("resting_hr"),
+            kcal=detail.get("calories"),
+        )
+
+    @staticmethod
+    def _resolve_load_provenance(
+        detail: Dict[str, Any], tss: Optional[float]
+    ) -> tuple[Optional[str], Optional[str]]:
+        origin = detail.get("tss_origin")
+        if origin is None and tss is not None:
+            if detail.get("provider_training_load") is not None:
+                origin = "provider"
+            elif detail.get("weighted_average_watts") is not None:
+                origin = "power_derived"
+            elif detail.get("average_heartrate") is not None:
+                origin = "hr_estimated"
+            else:
+                origin = "unknown"
+        family = detail.get("load_family")
+        if family is None and origin is not None:
+            family = {
+                "provider": "provider_training_load",
+                "power_derived": "power_derived_tss",
+                "hr_estimated": "hr_estimated_load",
+            }.get(origin, "unknown_load")
+        return origin, family
 
     async def fill_missing_metrics(self, page_id: str) -> Optional[WorkoutLog]:
         page = await self._client.retrieve(page_id)
@@ -176,6 +253,16 @@ class NotionWorkoutAdapter(WorkoutRepository):
             props[name] = {"number": value}
 
     @staticmethod
+    def _add_text_prop(props: Dict[str, Any], name: str, value: Any) -> None:
+        if value is not None:
+            props[name] = {"rich_text": [{"text": {"content": str(value)}}]}
+
+    @staticmethod
+    def _add_date_prop(props: Dict[str, Any], name: str, value: Any) -> None:
+        if isinstance(value, str) and value:
+            props[name] = {"date": {"start": value}}
+
+    @staticmethod
     def _parse_workout_page(page: Dict[str, Any]) -> Optional[WorkoutLog]:
         props = page.get("properties", {})
 
@@ -198,6 +285,11 @@ class NotionWorkoutAdapter(WorkoutRepository):
                 return date_data.get("start") or ""
             return ""
 
+        def _get_text(name: str) -> Optional[str]:
+            payload = props.get(name, {})
+            values = payload.get("rich_text") or payload.get("title") or []
+            return values[0].get("text", {}).get("content") if values else None
+
         try:
             type_value = NotionWorkoutAdapter._extract_workout_type(props)
             notes_value = NotionWorkoutAdapter._extract_workout_notes(props)
@@ -205,6 +297,12 @@ class NotionWorkoutAdapter(WorkoutRepository):
                 page_id=str(page.get("id") or ""),
                 name=_get_title("Name"),
                 date=_get_date("Date"),
+                start_time=_parse_datetime(_get_date("Start Time") or _get_date("Date")),
+                external_id=_get_text("External ID"),
+                provider_source=_get_text("Provider Source"),
+                provider_client_name=_get_text("Provider Client"),
+                device_name=_get_text("Device"),
+                payload_key=_get_text("Payload Key"),
                 duration_s=_get_number("Duration [s]"),
                 distance_m=_get_number("Distance [m]"),
                 elevation_m=_get_number("Elevation [m]"),
@@ -220,6 +318,8 @@ class NotionWorkoutAdapter(WorkoutRepository):
                 vo2max_minutes=_get_optional_number("VO2 MAX [min]"),
                 tss=_get_optional_number("TSS"),
                 intensity_factor=_get_optional_number("IF"),
+                tss_origin=_get_text("TSS Origin"),
+                load_family=_get_text("Load Family"),
                 notes=notes_value,
             )
         except Exception:
@@ -284,3 +384,13 @@ class NotionWorkoutAdapter(WorkoutRepository):
 def create_notion_workout_adapter(*, settings: Settings, client: NotionAPI) -> WorkoutRepository:
     """Create a Notion workout adapter without relying on FastAPI wiring."""
     return NotionWorkoutAdapter(settings=settings, client=client)
+
+
+def _parse_datetime(value: str) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)

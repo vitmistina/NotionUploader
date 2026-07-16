@@ -1,0 +1,1 @@
+"""Workout payload infrastructure adapters."""

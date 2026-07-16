@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from platform.config import Settings
 from typing import Any, Dict, List, Optional
 
@@ -20,7 +21,7 @@ class NotionNutritionAdapter(NutritionRepository):
             "parent": {"database_id": self._settings.notion_database_id},
             "properties": {
                 "Food Item": {"title": [{"text": {"content": entry.food_item}}]},
-                "Date": {"date": {"start": entry.date}},
+                "Date": {"date": {"start": entry.date.isoformat()}},
                 "Calories": {"number": entry.calories},
                 "Protein (g)": {"number": entry.protein_g},
                 "Carbs (g)": {"number": entry.carbs_g},
@@ -37,12 +38,14 @@ class NotionNutritionAdapter(NutritionRepository):
     async def list_entries_on_date(self, date: str) -> List[NutritionEntry]:
         return await self._query_entries({"property": "Date", "date": {"equals": date}})
 
-    async def list_entries_in_range(self, start_date: str, end_date: str) -> List[NutritionEntry]:
+    async def list_entries_in_range(
+        self, start_date: date | str, end_date: date | str
+    ) -> List[NutritionEntry]:
         return await self._query_entries(
             {
                 "and": [
-                    {"property": "Date", "date": {"on_or_after": start_date}},
-                    {"property": "Date", "date": {"on_or_before": end_date}},
+                    {"property": "Date", "date": {"on_or_after": _iso_date(start_date)}},
+                    {"property": "Date", "date": {"on_or_before": _iso_date(end_date)}},
                 ]
             }
         )
@@ -105,3 +108,7 @@ def create_notion_nutrition_adapter(
 ) -> NutritionRepository:
     """Create a Notion nutrition adapter without relying on FastAPI wiring."""
     return NotionNutritionAdapter(settings=settings, client=client)
+
+
+def _iso_date(value: date | str) -> str:
+    return value.isoformat() if isinstance(value, date) else value

@@ -7,7 +7,7 @@ from typing import Awaitable, Callable, List, Sequence, Tuple
 
 from ..domain.body_metrics.regression import linear_regression
 from ..domain.nutrition.summaries import get_daily_nutrition_summaries
-from ..models.advice import SummaryAdvice
+from ..models.advice import AthleteMetrics, SummaryAdvice
 from ..models.body import BodyMeasurement, BodyMetricTrends
 from ..models.nutrition import DailyNutritionSummaryWithEntries
 from ..models.time import get_local_time
@@ -54,7 +54,11 @@ class GetSummaryAdviceUseCase:
             metrics=metrics,
             metric_trends=trends,
             workouts=workouts,
-            athlete_metrics=athlete_metrics,
+            athlete_metrics=AthleteMetrics.model_validate(
+                athlete_metrics.model_dump()
+                if hasattr(athlete_metrics, "model_dump")
+                else athlete_metrics
+            ),
             local_time=local_time,
             part_of_day=part,
         )

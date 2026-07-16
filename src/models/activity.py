@@ -12,6 +12,10 @@ class ActivitySplit(BaseModel):
     elapsed_time: Optional[int] = None
     average_speed: Optional[float] = None
     distance: Optional[float] = None
+    average_watts: Optional[float] = None
+    weighted_average_watts: Optional[float] = None
+    max_watts: Optional[float] = None
+    average_cadence: Optional[float] = None
 
 
 class ActivityLap(ActivitySplit):

@@ -92,6 +92,12 @@ def _interval_dict(item: dict[str, Any]) -> dict[str, Any]:
         "elapsed_time": _int_num(item.get("elapsed_time"), field="interval.elapsed_time"),
         "average_speed": _num(item.get("average_speed"), field="interval.average_speed"),
         "distance": _num(item.get("distance"), field="interval.distance"),
+        "average_watts": _num(item.get("average_watts"), field="interval.average_watts"),
+        "weighted_average_watts": _num(
+            item.get("weighted_average_watts"), field="interval.weighted_average_watts"
+        ),
+        "max_watts": _num(item.get("max_watts"), field="interval.max_watts"),
+        "average_cadence": _num(item.get("average_cadence"), field="interval.average_cadence"),
     }
 
 

@@ -13,6 +13,8 @@ from pydantic import BaseModel, Field, ValidationError
 
 from ...domain.workout_metrics import compute_activity_metrics
 from ...notion.application.ports import WorkoutRepository
+from ...workout_payload.application.ports import WorkoutPayloadStore
+from ...workout_payload.infrastructure.redis_store import workout_payload_key
 from .mapper import map_intervals_activity
 from .ports import IntervalsApiError, IntervalsClientPort, IntervalsPayloadError
 
@@ -47,12 +49,14 @@ class IntervalsSyncCoordinator:
         default_lookback_days: int,
         rouvy_start_date: date | None,
         clock: Callable[[], datetime] | None = None,
+        payload_store: WorkoutPayloadStore | None = None,
     ) -> None:
         self._client = client
         self._workouts = workout_repository
         self._default_lookback_days = default_lookback_days
         self._rouvy_start_date = rouvy_start_date
         self._clock = clock or (lambda: datetime.now(timezone.utc))
+        self._payload_store = payload_store
 
     async def sync_recent(self, lookback_days: int | None = None) -> IntervalsSyncResult:
         days = self._validate_lookback(
@@ -79,6 +83,10 @@ class IntervalsSyncCoordinator:
                 detail = mapped.model_dump()
                 minified = json.dumps(detail, separators=(",", ":"), default=str)
                 attachment = base64.b64encode(gzip.compress(minified.encode())).decode()
+                payload_key = workout_payload_key("intervals_icu", mapped.external_id)
+                detail["payload_key"] = payload_key
+                if self._payload_store is not None:
+                    await self._payload_store.put(payload_key, attachment)
                 await self._workouts.save_workout(
                     detail,
                     attachment,

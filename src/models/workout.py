@@ -61,6 +61,13 @@ class WorkoutLog(BaseModel):
     page_id: str = Field(..., description="Unique identifier of the Notion page")
     name: str
     date: str
+    start_time: Optional[datetime] = None
+    external_id: Optional[str] = None
+    provider_source: Optional[str] = None
+    provider_client_name: Optional[str] = None
+    device_name: Optional[str] = None
+    payload_key: Optional[str] = None
+    intervals: Optional[list[Dict[str, Any]]] = None
     duration_s: float
     distance_m: float
     elevation_m: float
@@ -76,6 +83,11 @@ class WorkoutLog(BaseModel):
     vo2max_minutes: Optional[float] = None
     tss: Optional[float] = None
     intensity_factor: Optional[float] = None
+    tss_origin: Optional[str] = None
+    load_family: Optional[str] = None
+    intensity_factor_origin: Optional[str] = None
+    hr_drift_origin: Optional[str] = None
+    vo2max_origin: Optional[str] = None
     notes: Optional[str] = None
 
 

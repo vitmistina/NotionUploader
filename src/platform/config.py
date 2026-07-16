@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     intervals_api_base_url: str = "https://intervals.icu/api/v1"
     intervals_sync_lookback_days: int = 7
     intervals_rouvy_start_date: date | None = None
+    workout_payload_retention_days: int = 120
 
 
 @lru_cache()

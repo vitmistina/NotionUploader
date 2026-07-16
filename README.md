@@ -3,9 +3,9 @@
 FastAPI service that syncs nutrition, workout, and biometric data from external providers (Strava, Withings, custom integrations) into Notion databases. The API powers both manual uploads and automated webhooks deployed on Render.
 
 ## Architecture at a Glance
-- **API surface**: `src/routes/` defines versioned FastAPI routers (nutrition, metrics, workouts, advice, Strava) secured by an API key middleware and exposed through `src/main.py`.
+- **API surface**: `src/routes/` defines versioned FastAPI routers (nutrition, metrics, workouts, advice, Strava) secured by an API key middleware and exposed through `src/main.py`. `/v2/advice-context` is the typed, deterministic evidence contract for advice consumers; `/v2/summary-advice` remains available for compatibility.
 - **Error handling**: network connectivity failures to upstream services (e.g. Notion, Withings, Upstash Redis) are normalized to HTTP `503` with `UPSTREAM_CONNECTION_FAILED` and best-effort `upstream_host` in the response payload.
-- **Integrations**: Provider-specific clients live in `src/services/` and `src/withings.py` / `src/strava.py`. Shared helpers reside in `src/domain/` (including `src/domain/body_metrics/`) and `src/notion/`.
+- **Integrations**: Provider-specific clients live in `src/services/`, `src/withings/`, and `src/intervals_icu/`. Shared analytical helpers reside in `src/domain/advice/` and `src/domain/body_metrics/`; Notion adapters live in `src/notion/`. Workout interval payloads are retained through `src/workout_payload/`.
 - **Configuration**: `platform.config` centralizes environment variables with Pydantic settings and supports Render's uppercase environment naming, while security-critical utilities (API key validation, hashing) live in `platform.security`.
 - **Schemas**: `openapi.json` is generated from the running app via `uv run python generate_openapi.py` when routes or models change.
 
@@ -39,6 +39,12 @@ With the server running, `/` and `/healthz` provide lightweight health checks th
 uv run python generate_openapi.py
 ```
 
+## Advice context
+
+`GET /v2/advice-context?days=28&timezone=Europe/Prague` returns one explicit local-calendar window containing nutrition coverage, recorded-past-day statistics, daily body representatives, training totals separated by sport and load family, direct cross-domain joins, source statuses, quality issues, and raw evidence. Missing data is represented as `null` or explicit missing dates; it is never silently converted to zero. Use `include_entries=false` to omit raw food entries, or `include_workout_details=true` to request recently retained interval details.
+
+The endpoint performs bookkeeping only. It does not infer causality, food quality, workout success, or coaching priorities. Existing workout rows without provenance remain labelled as unknown, while new Intervals.icu syncs preserve provider identity, start timestamps, load origin, and a 120-day compressed payload reference.
+
 ## Configuration Reference
 Define the following variables (case insensitive thanks to `SettingsConfigDict(case_sensitive=False)`):
 
@@ -52,6 +58,7 @@ Define the following variables (case insensitive thanks to `SettingsConfigDict(c
 | `STRAVA_VERIFY_TOKEN` | Verification token for Strava webhook handshakes. |
 | `WBSAPI_URL` | Withings API base URL. |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Credentials for Redis-backed caching. |
+| `WORKOUT_PAYLOAD_RETENTION_DAYS` | Optional retention period for compressed interval payloads; the default is 120 days. |
 | `WITHINGS_CLIENT_ID` / `WITHINGS_CLIENT_SECRET` | OAuth credentials for Withings integration. |
 | `STRAVA_CLIENT_ID` / `STRAVA_CLIENT_SECRET` | OAuth credentials for Strava integration. |
 
@@ -103,7 +110,7 @@ Required configuration:
 
 The endpoint accepts `lookback_days=1..365`. Use the default seven-day rolling scan for normal cron operation, and larger bounded calls such as `lookback_days=365` for deliberate onboarding or Apple Watch historical backfill. The sync is idempotent: direct Intervals activities use negative numeric Notion IDs derived from Intervals IDs, while Intervals Companion activities use the exact UTC start timestamp to merge with manual Apple Watch uploads when the manual upload used the same instant.
 
-The existing Notion schema is unchanged. The Notion properties named `TSS` and `IF` now receive Intervals.icu training load and normalized intensity when available; for non-cycling activities these are generic Intervals metrics rather than strict cycling-only Coggan values.
+The existing Notion schema remains backward compatible. New syncs may populate `Start Time`, provider identity, `TSS Origin`, `Load Family`, and `Payload Key` properties alongside the legacy fields. The advice context never adds incompatible load families into one total; HR-estimated load is not reported as cycling TSS.
 
 Linux cron example:
 
