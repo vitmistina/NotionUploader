@@ -15,6 +15,7 @@ from ...models.advice_context import (
     TrainingWindowSummary,
 )
 from ...models.workout import WorkoutLog
+from .dates import workout_local_date
 
 
 def analyze_training(
@@ -24,24 +25,43 @@ def analyze_training(
     selected = [
         workout
         for workout in workouts
-        if window.start_date <= _workout_date(workout) <= window.end_date
+        if _safe_workout_date(workout, window.timezone) is not None
+        and window.start_date <= _workout_date(workout, window.timezone) <= window.end_date
     ]
     daily_by_date: dict[date, list[WorkoutLog]] = defaultdict(list)
     for workout in selected:
-        daily_by_date[_workout_date(workout)].append(workout)
+        daily_by_date[_workout_date(workout, window.timezone)].append(workout)
     daily = [_daily_summary(day, daily_by_date[day]) for day in sorted(daily_by_date)]
     windows: list[TrainingWindowSummary] = []
     for size in (4, 7, 14, 28):
-        if window.requested_days >= size:
+        if window.requested_days > size:
             start = window.end_date - timedelta(days=size - 1)
             windows.append(
                 _window_summary(
-                    start, window.end_date, [w for w in selected if start <= _workout_date(w)]
+                    start,
+                    window.end_date,
+                    [w for w in selected if start <= _workout_date(w, window.timezone)],
+                    window.timezone,
                 ),
             )
-    windows.append(_window_summary(window.start_date, window.end_date, selected))
+    windows.append(_window_summary(window.start_date, window.end_date, selected, window.timezone))
     concentrations = _concentrations(selected, window)
     issues: list[DataQualityIssue] = []
+    invalid_ids = [
+        workout.page_id
+        for workout in workouts
+        if _safe_workout_date(workout, window.timezone) is None
+    ]
+    if invalid_ids:
+        issues.append(
+            DataQualityIssue(
+                code="TRAINING_WORKOUT_DATE_INVALID",
+                domain="training",
+                severity="warning",
+                message="Some workouts have no valid analytical calendar date.",
+                affected_record_ids=invalid_ids,
+            )
+        )
     families = {
         family for workout in selected if (family := _load_family(workout)) != "unknown_load"
     }
@@ -104,7 +124,9 @@ def _daily_summary(day: date, workouts: list[WorkoutLog]) -> DailyTrainingSummar
     )
 
 
-def _window_summary(start: date, end: date, workouts: list[WorkoutLog]) -> TrainingWindowSummary:
+def _window_summary(
+    start: date, end: date, workouts: list[WorkoutLog], timezone_name: str = "UTC"
+) -> TrainingWindowSummary:
     duration: dict[str, float] = defaultdict(float)
     counts: dict[str, int] = defaultdict(int)
     loads: dict[str, float] = defaultdict(float)
@@ -115,7 +137,7 @@ def _window_summary(start: date, end: date, workouts: list[WorkoutLog]) -> Train
         if workout.tss is not None:
             loads[_load_family(workout)] += workout.tss
     kcal_values = [workout.kcal for workout in workouts if workout.kcal is not None]
-    training_days = {_workout_date(workout) for workout in workouts}
+    training_days = {_workout_date(workout, timezone_name) for workout in workouts}
     return TrainingWindowSummary(
         start_date=start,
         end_date=end,
@@ -149,7 +171,7 @@ def _concentrations(workouts: list[WorkoutLog], window: AnalysisWindow) -> list[
         recent = sum(
             workout.tss or 0
             for workout in workouts
-            if recent_start <= _workout_date(workout)
+            if recent_start <= _workout_date(workout, window.timezone)
             and _sport_group(workout) == sport
             and _load_family(workout) == family
         )
@@ -166,8 +188,15 @@ def _concentrations(workouts: list[WorkoutLog], window: AnalysisWindow) -> list[
     return result
 
 
-def _workout_date(workout: WorkoutLog) -> date:
-    return date.fromisoformat(workout.date[:10])
+def _safe_workout_date(workout: WorkoutLog, timezone_name: str) -> date | None:
+    try:
+        return workout_local_date(workout, timezone_name)
+    except ValueError:
+        return None
+
+
+def _workout_date(workout: WorkoutLog, timezone_name: str) -> date:
+    return workout_local_date(workout, timezone_name)
 
 
 def _sport_group(workout: WorkoutLog) -> str:

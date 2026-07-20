@@ -14,7 +14,7 @@ from ..platform.wiring import (
     get_daily_nutrition_entries_use_case,
     get_nutrition_entries_by_period_use_case,
 )
-from .utils import timezone_query
+from .utils import validated_timezone
 
 router: APIRouter = APIRouter()
 
@@ -33,7 +33,7 @@ async def create_nutrition_entry(
 )
 async def list_daily_nutrition_entries(
     date: str = Path(..., description="Date to fetch in YYYY-MM-DD format."),
-    timezone: str = timezone_query,
+    timezone: str = Depends(validated_timezone),
     use_case: GetDailyNutritionEntriesUseCase = Depends(get_daily_nutrition_entries_use_case),
 ) -> NutritionSummaryResponse:
     return await use_case(date, timezone)
@@ -52,7 +52,7 @@ async def list_nutrition_entries_by_period(
         ...,
         description="End date (inclusive) in YYYY-MM-DD format.",
     ),
-    timezone: str = timezone_query,
+    timezone: str = Depends(validated_timezone),
     use_case: GetNutritionEntriesByPeriodUseCase = Depends(
         get_nutrition_entries_by_period_use_case
     ),

@@ -23,6 +23,12 @@ class NotionAPI(Protocol):
     async def retrieve(self, page_id: str) -> Dict[str, Any]:
         """Fetch a page by its identifier."""
 
+    async def retrieve_database(self, database_id: str) -> Dict[str, Any]:
+        """Fetch a database schema by its identifier."""
+
+    async def update_database(self, database_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Update a database schema and return the updated object."""
+
 
 @runtime_checkable
 class StravaAPI(Protocol):

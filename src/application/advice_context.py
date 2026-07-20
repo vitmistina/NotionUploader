@@ -82,7 +82,7 @@ class GetAdviceContextUseCase:
         measurements = body_raw if isinstance(body_raw, list) else []
         workouts = workouts_raw if isinstance(workouts_raw, list) else []
         detail_issues: list[DataQualityIssue] = []
-        if include_workout_details and self.payload_store is not None:
+        if include_workout_details:
             workouts, detail_issues = await self._add_workout_details(workouts)
         profile = _profile_model(profile_raw if not isinstance(profile_raw, Exception) else {})
         nutrition, nutrition_issues = analyze_nutrition(
@@ -155,47 +155,30 @@ class GetAdviceContextUseCase:
         enriched: list[WorkoutLog] = []
         issues: list[DataQualityIssue] = []
         for workout in workouts:
-            if not workout.payload_key or self.payload_store is None:
+            if not workout.payload_key:
                 enriched.append(workout)
-                issues.append(
-                    DataQualityIssue(
-                        code="TRAINING_WORKOUT_DETAILS_UNAVAILABLE",
-                        domain="training",
-                        severity="info",
-                        message="Structured interval details were not retained for this workout.",
-                        affected_record_ids=[workout.page_id],
-                    )
-                )
+                issues.append(_workout_detail_issue(workout, "info", "not_retained"))
                 continue
-            payload = await self.payload_store.get(workout.payload_key)
-            if payload is None:
+            if self.payload_store is None:
                 enriched.append(workout)
-                issues.append(
-                    DataQualityIssue(
-                        code="TRAINING_WORKOUT_DETAILS_UNAVAILABLE",
-                        domain="training",
-                        severity="info",
-                        message="The retained workout payload is no longer available.",
-                        affected_record_ids=[workout.page_id],
-                    )
-                )
+                issues.append(_workout_detail_issue(workout, "warning", "store_unavailable"))
                 continue
             try:
-                decoded = gzip.decompress(base64.b64decode(payload)).decode()
-                detail = json.loads(decoded)
-                intervals = detail.get("splits_metric") or detail.get("laps") or []
-                enriched.append(workout.model_copy(update={"intervals": intervals}))
-            except (ValueError, TypeError, OSError, json.JSONDecodeError):
+                payload = await self.payload_store.get(workout.payload_key)
+            except Exception:
                 enriched.append(workout)
-                issues.append(
-                    DataQualityIssue(
-                        code="TRAINING_WORKOUT_DETAILS_UNAVAILABLE",
-                        domain="training",
-                        severity="warning",
-                        message="The retained workout payload could not be decoded.",
-                        affected_record_ids=[workout.page_id],
-                    )
-                )
+                issues.append(_workout_detail_issue(workout, "warning", "store_unavailable"))
+                continue
+            if payload is None:
+                enriched.append(workout)
+                issues.append(_workout_detail_issue(workout, "info", "expired"))
+                continue
+            try:
+                intervals = _decode_workout_intervals(payload)
+                enriched.append(workout.model_copy(update={"intervals": intervals}))
+            except (ValueError, TypeError, OSError, UnicodeDecodeError, json.JSONDecodeError):
+                enriched.append(workout)
+                issues.append(_workout_detail_issue(workout, "warning", "decode_failed"))
         return enriched, issues
 
     def _generated_at(self) -> datetime:
@@ -244,3 +227,30 @@ def _source_issues(statuses: list[SourceStatus]) -> list[DataQualityIssue]:
 
 
 __all__ = ["GetAdviceContextUseCase"]
+
+
+def _workout_detail_issue(workout: WorkoutLog, severity: str, reason: str) -> DataQualityIssue:
+    return DataQualityIssue(
+        code="TRAINING_WORKOUT_DETAILS_UNAVAILABLE",
+        domain="training",
+        severity=severity,
+        message="Structured interval details are unavailable for this workout.",
+        affected_record_ids=[workout.page_id],
+        details={"reason": reason},
+    )
+
+
+def _decode_workout_intervals(payload: str) -> list[Any]:
+    decoded = gzip.decompress(base64.b64decode(payload)).decode()
+    detail = json.loads(decoded)
+    if not isinstance(detail, dict):
+        raise ValueError("payload top-level value is not an object")
+    if "splits_metric" in detail:
+        intervals = detail["splits_metric"]
+    elif "laps" in detail:
+        intervals = detail["laps"]
+    else:
+        intervals = []
+    if not isinstance(intervals, list):
+        raise ValueError("payload intervals are not a list")
+    return intervals

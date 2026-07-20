@@ -70,3 +70,37 @@ async def test_advice_context_route_exposes_stable_contract(client, app, setting
 
     assert response.status_code == 200
     assert response.json()["context_version"] == "2.0"
+
+
+@pytest.mark.parametrize(
+    "path,params",
+    [
+        ("/v2/advice-context", {"timezone": "Invalid/Zone"}),
+        ("/v2/summary-advice", {"timezone": "Invalid/Zone"}),
+        ("/v2/nutrition-entries/daily/2026-07-16", {"timezone": "Invalid/Zone"}),
+        (
+            "/v2/nutrition-entries/period",
+            {
+                "start_date": "2026-07-15",
+                "end_date": "2026-07-16",
+                "timezone": "Invalid/Zone",
+            },
+        ),
+    ],
+)
+async def test_timezone_aware_routes_reject_unknown_zone(
+    client, settings, path: str, params: dict[str, str]
+) -> None:
+    response = await client.get(path, params=params, headers={"x-api-key": settings.api_key})
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": [
+            {
+                "type": "timezone",
+                "loc": ["query", "timezone"],
+                "msg": "Unknown IANA timezone",
+                "input": "Invalid/Zone",
+            }
+        ]
+    }

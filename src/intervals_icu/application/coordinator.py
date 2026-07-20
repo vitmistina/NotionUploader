@@ -38,6 +38,8 @@ class IntervalsSyncResult(BaseModel):
     failed: int
     skipped_by_reason: dict[str, int] = Field(default_factory=dict)
     failures: list[IntervalsSyncFailure] = Field(default_factory=list)
+    payloads_retained: int = 0
+    payload_retention_failures: int = 0
 
 
 class IntervalsSyncCoordinator:
@@ -71,6 +73,8 @@ class IntervalsSyncCoordinator:
         logger.info("Intervals.icu discovered=%s eligible=%s", len(activities), len(eligible))
         athlete = await self._workouts.fetch_latest_athlete_profile()
         processed = 0
+        payloads_retained = 0
+        payload_retention_failures = 0
         failures: list[IntervalsSyncFailure] = []
         for activity in eligible:
             activity_id = activity.get("id") if isinstance(activity.get("id"), str) else None
@@ -84,9 +88,20 @@ class IntervalsSyncCoordinator:
                 minified = json.dumps(detail, separators=(",", ":"), default=str)
                 attachment = base64.b64encode(gzip.compress(minified.encode())).decode()
                 payload_key = workout_payload_key("intervals_icu", mapped.external_id)
-                detail["payload_key"] = payload_key
                 if self._payload_store is not None:
-                    await self._payload_store.put(payload_key, attachment)
+                    try:
+                        await self._payload_store.put(payload_key, attachment)
+                    except Exception as exc:  # best-effort evidence retention
+                        payload_retention_failures += 1
+                        logger.warning(
+                            "Workout payload retention failed activity_id=%s "
+                            "code=WORKOUT_PAYLOAD_STORE_UNAVAILABLE error_class=%s",
+                            activity_id,
+                            type(exc).__name__,
+                        )
+                    else:
+                        payloads_retained += 1
+                        detail["payload_key"] = payload_key
                 await self._workouts.save_workout(
                     detail,
                     attachment,
@@ -120,6 +135,8 @@ class IntervalsSyncCoordinator:
             failed=failed,
             skipped_by_reason=dict(skipped),
             failures=failures,
+            payloads_retained=payloads_retained,
+            payload_retention_failures=payload_retention_failures,
         )
         logger.info(
             "Intervals.icu sync completed processed=%s skipped=%s failed=%s",

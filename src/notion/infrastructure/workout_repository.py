@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime, timedelta, timezone
 from platform.config import Settings
 from typing import Any, Dict, List, Optional
 
+from ...domain.advice.dates import workout_local_date
 from ...domain.body_metrics.hr import estimate_if_tss_from_hr
 from ...models.advice_context import AdviceAthleteProfile
 from ...models.workout import WorkoutLog
 from ...services.interfaces import NotionAPI
 from ..application.ports import WorkoutRepository
+from .workout_schema import WorkoutSchemaCompatibility, classify_workout_schema
+
+logger = logging.getLogger(__name__)
+BOUNDARY_DATE_PADDING_DAYS = 1
 
 
 class NotionWorkoutAdapter(WorkoutRepository):
@@ -17,6 +23,7 @@ class NotionWorkoutAdapter(WorkoutRepository):
     def __init__(self, *, settings: Settings, client: NotionAPI) -> None:
         self._settings = settings
         self._client = client
+        self._extension_schema: WorkoutSchemaCompatibility | None = None
 
     async def list_recent_workouts(self, days: int) -> List[WorkoutLog]:
         start = (datetime.now(timezone.utc) - timedelta(days=days)).date().isoformat()
@@ -44,12 +51,13 @@ class NotionWorkoutAdapter(WorkoutRepository):
         self, start_date: date, end_date: date, timezone_name: str
     ) -> List[WorkoutLog]:
         """Read every workout page in an explicit range without mutating Notion."""
-        _ = timezone_name
+        padded_start = start_date - timedelta(days=BOUNDARY_DATE_PADDING_DAYS)
+        padded_end = end_date + timedelta(days=BOUNDARY_DATE_PADDING_DAYS)
         payload: Dict[str, Any] = {
             "filter": {
                 "and": [
-                    {"property": "Date", "date": {"on_or_after": start_date.isoformat()}},
-                    {"property": "Date", "date": {"on_or_before": end_date.isoformat()}},
+                    {"property": "Date", "date": {"on_or_after": padded_start.isoformat()}},
+                    {"property": "Date", "date": {"on_or_before": padded_end.isoformat()}},
                 ]
             }
         }
@@ -59,7 +67,15 @@ class NotionWorkoutAdapter(WorkoutRepository):
             for page in response.get("results", []):
                 workout = self._parse_workout_page(page)
                 if workout is not None:
-                    workouts.append(workout)
+                    try:
+                        local_date = workout_local_date(workout, timezone_name)
+                    except ValueError:
+                        # Keep malformed candidates so the domain analyzer can report
+                        # TRAINING_WORKOUT_DATE_INVALID instead of silently losing them.
+                        workouts.append(workout)
+                        continue
+                    if start_date <= local_date <= end_date:
+                        workouts.append(workout)
             if not response.get("has_more"):
                 break
             payload["start_cursor"] = response.get("next_cursor")
@@ -139,14 +155,16 @@ class NotionWorkoutAdapter(WorkoutRepository):
             "Id": {"number": detail["id"]},
             "Day of week": {"select": {"name": day_of_week}},
         }
-        self._add_date_prop(props, "Start Time", detail.get("start_date"))
-        self._add_text_prop(props, "External ID", detail.get("external_id"))
-        self._add_text_prop(props, "Provider Source", detail.get("provider_source"))
-        self._add_text_prop(props, "Provider Client", detail.get("provider_client_name"))
-        self._add_text_prop(props, "Device", detail.get("device_name"))
-        self._add_text_prop(props, "Payload Key", detail.get("payload_key"))
-        self._add_text_prop(props, "TSS Origin", tss_origin)
-        self._add_text_prop(props, "Load Family", load_family)
+        extension_props: Dict[str, Any] = {}
+        self._add_date_prop(extension_props, "Start Time", detail.get("start_date"))
+        self._add_text_prop(extension_props, "External ID", detail.get("external_id"))
+        self._add_text_prop(extension_props, "Provider Source", detail.get("provider_source"))
+        self._add_text_prop(extension_props, "Provider Client", detail.get("provider_client_name"))
+        self._add_text_prop(extension_props, "Device", detail.get("device_name"))
+        self._add_text_prop(extension_props, "Payload Key", detail.get("payload_key"))
+        self._add_text_prop(extension_props, "TSS Origin", tss_origin)
+        self._add_text_prop(extension_props, "Load Family", load_family)
+        props.update(await self._compatible_extension_props(extension_props))
 
         self._add_number_prop(props, "Average Cadence", detail.get("average_cadence"))
         self._add_number_prop(props, "Average Watts", detail.get("average_watts"))
@@ -182,6 +200,42 @@ class NotionWorkoutAdapter(WorkoutRepository):
             "properties": props,
         }
         await self._client.create(payload)
+
+    async def _compatible_extension_props(self, props: Dict[str, Any]) -> Dict[str, Any]:
+        compatibility = await self._extension_schema_compatibility()
+        return {name: value for name, value in props.items() if name in compatibility.compatible}
+
+    async def _extension_schema_compatibility(self) -> WorkoutSchemaCompatibility:
+        if self._extension_schema is not None:
+            return self._extension_schema
+        try:
+            database = await self._client.retrieve_database(
+                self._settings.notion_workout_database_id
+            )
+            compatibility = classify_workout_schema(database)
+        except Exception as exc:
+            compatibility = WorkoutSchemaCompatibility(
+                compatible=frozenset(),
+                missing=(),
+                type_conflicts=(),
+                unavailable=True,
+            )
+            logger.warning(
+                "Notion workout extension schema unavailable; "
+                "writing legacy workout properties only error_class=%s",
+                type(exc).__name__,
+            )
+        else:
+            if compatibility.missing or compatibility.type_conflicts:
+                logger.warning(
+                    "Notion workout extension schema incomplete; "
+                    "writing compatible extension properties only "
+                    "missing=%s type_conflicts=%s",
+                    list(compatibility.missing),
+                    list(compatibility.type_conflicts),
+                )
+        self._extension_schema = compatibility
+        return compatibility
 
     async def _estimate_metrics(self, detail: Dict[str, Any]) -> Optional[tuple[float, float]]:
         athlete = await self.fetch_latest_athlete_profile()
@@ -297,7 +351,9 @@ class NotionWorkoutAdapter(WorkoutRepository):
                 page_id=str(page.get("id") or ""),
                 name=_get_title("Name"),
                 date=_get_date("Date"),
-                start_time=_parse_datetime(_get_date("Start Time") or _get_date("Date")),
+                # A legacy Date is a calendar value, not an instant.  Treating it as
+                # midnight UTC would move it to the previous day in western zones.
+                start_time=_parse_datetime(_get_date("Start Time")),
                 external_id=_get_text("External ID"),
                 provider_source=_get_text("Provider Source"),
                 provider_client_name=_get_text("Provider Client"),

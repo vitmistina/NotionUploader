@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from src.notion.infrastructure.workout_repository import NotionWorkoutAdapter
@@ -270,6 +272,55 @@ async def test_save_workout_updates_existing_notion_page(
 
 
 @pytest.mark.asyncio
+async def test_range_read_preserves_legacy_calendar_date_in_negative_timezone(
+    settings: Settings, notion_workout_fake: NotionWorkoutFake
+) -> None:
+    notion_workout_fake.with_workouts(
+        [
+            make_notion_workout(
+                id="legacy-page",
+                properties={
+                    "Name": notion_title("Legacy ride"),
+                    "Date": {"date": {"start": "2026-07-15"}},
+                },
+            )
+        ]
+    )
+    repository = NotionWorkoutAdapter(settings=settings, client=notion_workout_fake)
+
+    workouts = await repository.list_workouts_in_range(
+        date(2026, 7, 15), date(2026, 7, 15), "America/New_York"
+    )
+
+    assert [workout.page_id for workout in workouts] == ["legacy-page"]
+    assert workouts[0].start_time is None
+
+
+@pytest.mark.asyncio
+async def test_range_read_keeps_invalid_date_for_domain_diagnostics(
+    settings: Settings, notion_workout_fake: NotionWorkoutFake
+) -> None:
+    notion_workout_fake.with_workouts(
+        [
+            make_notion_workout(
+                id="invalid-page",
+                properties={
+                    "Name": notion_title("Malformed legacy ride"),
+                    "Date": {"date": {"start": "not-a-date"}},
+                },
+            )
+        ]
+    )
+    repository = NotionWorkoutAdapter(settings=settings, client=notion_workout_fake)
+
+    workouts = await repository.list_workouts_in_range(
+        date(2026, 7, 15), date(2026, 7, 15), "UTC"
+    )
+
+    assert [workout.page_id for workout in workouts] == ["invalid-page"]
+
+
+@pytest.mark.asyncio
 async def test_fill_missing_metrics_preserves_user_supplied_metrics(
     settings: Settings,
     freeze_time,
@@ -308,3 +359,74 @@ async def test_fill_missing_metrics_preserves_user_supplied_metrics(
     assert updated.tss == pytest.approx(USER_SUPPLIED_TSS)
     assert updated.intensity_factor == pytest.approx(USER_SUPPLIED_INTENSITY_FACTOR)
     assert notion_workout_fake.updates() == []
+
+
+@pytest.mark.asyncio
+async def test_save_workout_filters_missing_extension_schema(
+    settings: Settings,
+    notion_workout_fake: NotionWorkoutFake,
+) -> None:
+    notion_workout_fake.database_schema = {"properties": {}}
+    repository = NotionWorkoutAdapter(settings=settings, client=notion_workout_fake)
+
+    await repository.save_workout(
+        {
+            "id": 123,
+            "name": "Ride",
+            "start_date": "2026-07-15T12:00:00+00:00",
+            "elapsed_time": 60,
+            "moving_time": 60,
+            "distance": 1,
+            "total_elevation_gain": 0,
+            "type": "Ride",
+            "payload_key": "secret-free-key",
+        },
+        "attachment",
+        0,
+        0,
+    )
+
+    props = notion_workout_fake._pages["created-page"]["properties"]
+    assert "Date" in props
+    assert "Payload Key" not in props
+
+
+@pytest.mark.asyncio
+async def test_save_workout_writes_complete_extension_schema(
+    settings: Settings,
+    notion_workout_fake: NotionWorkoutFake,
+) -> None:
+    notion_workout_fake.database_schema = {
+        "properties": {
+            "Start Time": {"type": "date"},
+            "Payload Key": {"type": "rich_text"},
+            "TSS Origin": {"type": "rich_text"},
+            "Load Family": {"type": "rich_text"},
+            "External ID": {"type": "rich_text"},
+            "Provider Source": {"type": "rich_text"},
+            "Provider Client": {"type": "rich_text"},
+            "Device": {"type": "rich_text"},
+        }
+    }
+    repository = NotionWorkoutAdapter(settings=settings, client=notion_workout_fake)
+
+    await repository.save_workout(
+        {
+            "id": 456,
+            "name": "Ride",
+            "start_date": "2026-07-15T12:00:00+00:00",
+            "elapsed_time": 60,
+            "moving_time": 60,
+            "distance": 1,
+            "total_elevation_gain": 0,
+            "type": "Ride",
+            "payload_key": "payload-key",
+        },
+        "attachment",
+        0,
+        0,
+    )
+
+    props = notion_workout_fake._pages["created-page"]["properties"]
+    assert props["Start Time"] == {"date": {"start": "2026-07-15T12:00:00+00:00"}}
+    assert props["Payload Key"] == {"rich_text": [{"text": {"content": "payload-key"}}]}

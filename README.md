@@ -43,7 +43,7 @@ uv run python generate_openapi.py
 
 `GET /v2/advice-context?days=28&timezone=Europe/Prague` returns one explicit local-calendar window containing nutrition coverage, recorded-past-day statistics, daily body representatives, training totals separated by sport and load family, direct cross-domain joins, source statuses, quality issues, and raw evidence. Missing data is represented as `null` or explicit missing dates; it is never silently converted to zero. Use `include_entries=false` to omit raw food entries, or `include_workout_details=true` to request recently retained interval details.
 
-The endpoint performs bookkeeping only. It does not infer causality, food quality, workout success, or coaching priorities. Existing workout rows without provenance remain labelled as unknown, while new Intervals.icu syncs preserve provider identity, start timestamps, load origin, and a 120-day compressed payload reference.
+The endpoint performs bookkeeping only. It does not infer causality, food quality, workout success, or coaching priorities. Existing workout rows without provenance remain labelled as unknown, while new Intervals.icu syncs preserve provider identity, start timestamps, load origin, and a 120-day compressed payload reference when Redis retention is available. Invalid `timezone` query values are rejected with HTTP 422 instead of falling back silently or surfacing a server error.
 
 ## Configuration Reference
 Define the following variables (case insensitive thanks to `SettingsConfigDict(case_sensitive=False)`):
@@ -79,6 +79,7 @@ Run the import boundary checks, linter, and coverage-enabled tests before every 
 - **Review the README**: Treat this document as the source of truth for setup and deployment. Re-read it after each change and update any sections impacted by your modifications before merging.
 
 ## Deployment Notes
+- Before enabling Intervals.icu workout provenance in a workspace, run `uv run python scripts/ensure_notion_workout_schema.py` to install the additive workout properties (`Start Time`, `External ID`, `Provider Source`, `Provider Client`, `Device`, `Payload Key`, `TSS Origin`, and `Load Family`). The command is idempotent, prints a secret-free summary, and exits non-zero for type conflicts. Runtime writes still degrade to the legacy property set if the extension schema is missing or cannot be inspected.
 - Render deploys this service via webhook; health checks hit `/healthz`, which reads the previous Redis-recorded probe timestamp and upserts the current timestamp on each probe.
 - The production OpenAPI schema is exposed at `/v2/api-schema` with the server URL pre-set to Render (`https://notionuploader-groa.onrender.com`).
 - Ensure any schema or dependency changes are committed together so the Render build installs the correct versions from `uv.lock`.
@@ -110,7 +111,7 @@ Required configuration:
 
 The endpoint accepts `lookback_days=1..365`. Use the default seven-day rolling scan for normal cron operation, and larger bounded calls such as `lookback_days=365` for deliberate onboarding or Apple Watch historical backfill. The sync is idempotent: direct Intervals activities use negative numeric Notion IDs derived from Intervals IDs, while Intervals Companion activities use the exact UTC start timestamp to merge with manual Apple Watch uploads when the manual upload used the same instant.
 
-The existing Notion schema remains backward compatible. New syncs may populate `Start Time`, provider identity, `TSS Origin`, `Load Family`, and `Payload Key` properties alongside the legacy fields. The advice context never adds incompatible load families into one total; HR-estimated load is not reported as cycling TSS.
+The existing Notion schema remains backward compatible. New syncs may populate `Start Time`, provider identity, `TSS Origin`, `Load Family`, and `Payload Key` properties alongside the legacy fields after the migration command has installed compatible Notion properties. If Upstash payload retention is unavailable, the workout is still saved to Notion, sync results report `payloads_retained` and `payload_retention_failures`, and advice-context details report structured unavailability issues instead of failing the whole response. The advice context never adds incompatible load families into one total; HR-estimated load is not reported as cycling TSS, and timestamped workouts are attributed to the requested IANA timezone for range filtering, grouping, streaks, windows, and cross-domain joins.
 
 Linux cron example:
 

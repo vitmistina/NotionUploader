@@ -74,3 +74,30 @@ def test_cross_domain_does_not_screen_without_complete_exercise_calories() -> No
     joined = analyze_cross_domain(nutrition, body, training, window)
 
     assert joined.daily[0].screening_energy_availability_kcal_per_kg_ffm is None
+
+
+def test_training_windows_are_unique_for_standard_request_size() -> None:
+    window = build_analysis_window(
+        days=7,
+        timezone_name="UTC",
+        clock=lambda: datetime(2026, 7, 16, 12, tzinfo=timezone.utc),
+    )
+
+    training, _ = analyze_training([], window)
+
+    assert [item.calendar_days for item in training.windows] == [4, 7]
+    assert len({(item.start_date, item.end_date) for item in training.windows}) == 2
+
+
+def test_training_uses_timestamp_in_requested_timezone() -> None:
+    workout = _workout("2026-07-15", "Ride", "provider_training_load", 100, 500)
+    workout = workout.model_copy(update={"start_time": datetime(2026, 7, 15, 23, 30, tzinfo=timezone.utc)})
+    window = build_analysis_window(
+        days=1,
+        timezone_name="Europe/Prague",
+        clock=lambda: datetime(2026, 7, 16, 12, tzinfo=timezone.utc),
+    )
+
+    training, _ = analyze_training([workout], window)
+
+    assert [day.date.isoformat() for day in training.daily] == ["2026-07-16"]

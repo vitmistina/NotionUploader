@@ -103,6 +103,9 @@
             "schema": {
               "type": "string",
               "description": "IANA timezone for local time, defaults to Prague.",
+              "examples": [
+                "Europe/Prague"
+              ],
               "default": "Europe/Prague",
               "title": "Timezone"
             },
@@ -174,6 +177,9 @@
             "schema": {
               "type": "string",
               "description": "IANA timezone for local time, defaults to Prague.",
+              "examples": [
+                "Europe/Prague"
+              ],
               "default": "Europe/Prague",
               "title": "Timezone"
             },
@@ -426,18 +432,6 @@
             "description": "Inclusive calendar days of analytical context."
           },
           {
-            "name": "timezone",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "IANA timezone for local time, defaults to Prague.",
-              "default": "Europe/Prague",
-              "title": "Timezone"
-            },
-            "description": "IANA timezone for local time, defaults to Prague."
-          },
-          {
             "name": "include_entries",
             "in": "query",
             "required": false,
@@ -460,6 +454,21 @@
               "title": "Include Workout Details"
             },
             "description": "Include stored interval details when available."
+          },
+          {
+            "name": "timezone",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "IANA timezone for local time, defaults to Prague.",
+              "examples": [
+                "Europe/Prague"
+              ],
+              "default": "Europe/Prague",
+              "title": "Timezone"
+            },
+            "description": "IANA timezone for local time, defaults to Prague."
           }
         ],
         "responses": {
@@ -517,6 +526,9 @@
             "schema": {
               "type": "string",
               "description": "IANA timezone for local time, defaults to Prague.",
+              "examples": [
+                "Europe/Prague"
+              ],
               "default": "Europe/Prague",
               "title": "Timezone"
             },
@@ -1681,6 +1693,16 @@
             },
             "type": "array",
             "title": "Failures"
+          },
+          "payloads_retained": {
+            "type": "integer",
+            "title": "Payloads Retained",
+            "default": 0
+          },
+          "payload_retention_failures": {
+            "type": "integer",
+            "title": "Payload Retention Failures",
+            "default": 0
           }
         },
         "type": "object",
