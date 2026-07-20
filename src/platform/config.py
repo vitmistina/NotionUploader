@@ -9,7 +9,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
+    # A shared .env may contain credentials for integrations that are not used
+    # by every command (for example, the schema migration only needs Notion).
+    # Ignore those unrelated variables instead of failing settings validation.
+    model_config = SettingsConfigDict(
+        env_file=".env", case_sensitive=False, extra="ignore"
+    )
 
     api_key: str
     notion_secret: str
