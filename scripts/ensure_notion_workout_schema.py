@@ -9,12 +9,13 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from platform.config import get_settings  # noqa: E402
+
 from notion.infrastructure.workout_schema import (  # noqa: E402
     WORKOUT_EXTENSION_SCHEMA,
     classify_workout_schema,
     notion_property_definition,
 )
-from platform.config import get_settings  # noqa: E402
 from services.notion import NotionClient  # noqa: E402
 
 
@@ -39,7 +40,9 @@ async def main() -> int:
             name: notion_property_definition(WORKOUT_EXTENSION_SCHEMA[name])
             for name in compatibility.missing
         }
-        await client.update_database(settings.notion_workout_database_id, {"properties": properties})
+        await client.update_database(
+                settings.notion_workout_database_id, {"properties": properties}
+        )
         final = classify_workout_schema(
             await client.retrieve_database(settings.notion_workout_database_id)
         )
