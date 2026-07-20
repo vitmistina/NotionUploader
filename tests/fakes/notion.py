@@ -17,6 +17,8 @@ class NotionWorkoutFake(NotionAPI):
         self._profile: Dict[str, Any] | None = None
         self._pages: Dict[str, Dict[str, Any]] = {}
         self._updates: List[Tuple[str, Dict[str, Any]]] = []
+        self.database_schema: Dict[str, Any] = {"properties": {}}
+        self.database_updates: List[Dict[str, Any]] = []
 
     def with_workouts(self, workouts: Iterable[Dict[str, Any]]) -> "NotionWorkoutFake":
         """Seed the fake with workout pages returned by the query API."""
@@ -61,3 +63,15 @@ class NotionWorkoutFake(NotionAPI):
 
     async def retrieve(self, page_id: str) -> Dict[str, Any]:
         return self._pages.get(page_id, {"id": page_id, "properties": {}})
+
+    async def retrieve_database(self, database_id: str) -> Dict[str, Any]:
+        _ = database_id
+        return self.database_schema
+
+    async def update_database(
+        self, database_id: str, payload: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        _ = database_id
+        self.database_updates.append(payload)
+        self.database_schema.setdefault("properties", {}).update(payload.get("properties", {}))
+        return self.database_schema

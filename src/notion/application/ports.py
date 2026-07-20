@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
 from ...models.nutrition import NutritionEntry
@@ -16,7 +17,9 @@ class NutritionRepository(Protocol):
     async def list_entries_on_date(self, date: str) -> List[NutritionEntry]:
         """Return nutrition entries for a specific date."""
 
-    async def list_entries_in_range(self, start_date: str, end_date: str) -> List[NutritionEntry]:
+    async def list_entries_in_range(
+        self, start_date: date | str, end_date: date | str
+    ) -> List[NutritionEntry]:
         """Return nutrition entries between the provided dates (inclusive)."""
 
 
@@ -26,6 +29,11 @@ class WorkoutRepository(Protocol):
 
     async def list_recent_workouts(self, days: int) -> List[WorkoutLog]:
         """Return workouts recorded within the trailing number of days."""
+
+    async def list_workouts_in_range(
+        self, start_date: date, end_date: date, timezone: str
+    ) -> List[WorkoutLog]:
+        """Return workouts in one explicit inclusive local-date range without writes."""
 
     async def fetch_latest_athlete_profile(self) -> Dict[str, Any]:
         """Return the most recent athlete profile metrics from Notion."""

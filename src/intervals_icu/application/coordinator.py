@@ -13,6 +13,8 @@ from pydantic import BaseModel, Field, ValidationError
 
 from ...domain.workout_metrics import compute_activity_metrics
 from ...notion.application.ports import WorkoutRepository
+from ...workout_payload.application.ports import WorkoutPayloadStore
+from ...workout_payload.infrastructure.redis_store import workout_payload_key
 from .mapper import map_intervals_activity
 from .ports import IntervalsApiError, IntervalsClientPort, IntervalsPayloadError
 
@@ -36,6 +38,8 @@ class IntervalsSyncResult(BaseModel):
     failed: int
     skipped_by_reason: dict[str, int] = Field(default_factory=dict)
     failures: list[IntervalsSyncFailure] = Field(default_factory=list)
+    payloads_retained: int = 0
+    payload_retention_failures: int = 0
 
 
 class IntervalsSyncCoordinator:
@@ -47,12 +51,14 @@ class IntervalsSyncCoordinator:
         default_lookback_days: int,
         rouvy_start_date: date | None,
         clock: Callable[[], datetime] | None = None,
+        payload_store: WorkoutPayloadStore | None = None,
     ) -> None:
         self._client = client
         self._workouts = workout_repository
         self._default_lookback_days = default_lookback_days
         self._rouvy_start_date = rouvy_start_date
         self._clock = clock or (lambda: datetime.now(timezone.utc))
+        self._payload_store = payload_store
 
     async def sync_recent(self, lookback_days: int | None = None) -> IntervalsSyncResult:
         days = self._validate_lookback(
@@ -67,6 +73,8 @@ class IntervalsSyncCoordinator:
         logger.info("Intervals.icu discovered=%s eligible=%s", len(activities), len(eligible))
         athlete = await self._workouts.fetch_latest_athlete_profile()
         processed = 0
+        payloads_retained = 0
+        payload_retention_failures = 0
         failures: list[IntervalsSyncFailure] = []
         for activity in eligible:
             activity_id = activity.get("id") if isinstance(activity.get("id"), str) else None
@@ -79,6 +87,21 @@ class IntervalsSyncCoordinator:
                 detail = mapped.model_dump()
                 minified = json.dumps(detail, separators=(",", ":"), default=str)
                 attachment = base64.b64encode(gzip.compress(minified.encode())).decode()
+                payload_key = workout_payload_key("intervals_icu", mapped.external_id)
+                if self._payload_store is not None:
+                    try:
+                        await self._payload_store.put(payload_key, attachment)
+                    except Exception as exc:  # best-effort evidence retention
+                        payload_retention_failures += 1
+                        logger.warning(
+                            "Workout payload retention failed activity_id=%s "
+                            "code=WORKOUT_PAYLOAD_STORE_UNAVAILABLE error_class=%s",
+                            activity_id,
+                            type(exc).__name__,
+                        )
+                    else:
+                        payloads_retained += 1
+                        detail["payload_key"] = payload_key
                 await self._workouts.save_workout(
                     detail,
                     attachment,
@@ -112,6 +135,8 @@ class IntervalsSyncCoordinator:
             failed=failed,
             skipped_by_reason=dict(skipped),
             failures=failures,
+            payloads_retained=payloads_retained,
+            payload_retention_failures=payload_retention_failures,
         )
         logger.info(
             "Intervals.icu sync completed processed=%s skipped=%s failed=%s",

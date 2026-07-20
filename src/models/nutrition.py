@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import List, Literal
 
 from pydantic import BaseModel, Field
@@ -12,7 +13,7 @@ class NutritionEntry(BaseModel):
         None, description="Unique identifier of the corresponding Notion page"
     )
     food_item: str
-    date: str
+    date: date
     calories: int
     protein_g: float
     carbs_g: float
@@ -32,7 +33,7 @@ class NutritionEntry(BaseModel):
 class DailyNutritionSummary(BaseModel):
     """Aggregated nutrition information for a single day."""
 
-    date: str
+    date: date
     daily_calories_sum: int
     daily_protein_g_sum: float
     daily_carbs_g_sum: float

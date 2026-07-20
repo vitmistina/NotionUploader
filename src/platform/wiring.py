@@ -10,6 +10,7 @@ import httpx
 from fastapi import Depends
 
 from ..application.advice import GetSummaryAdviceUseCase
+from ..application.advice_context import GetAdviceContextUseCase
 from ..application.metrics import ListBodyMeasurementsUseCase
 from ..application.nutrition import (
     CreateNutritionEntryUseCase,
@@ -30,6 +31,7 @@ from ..services.interfaces import NotionAPI
 from ..services.notion import get_notion_client
 from ..withings.application import WithingsMeasurementsPort
 from ..withings.infrastructure import create_withings_measurements_adapter
+from ..workout_payload.infrastructure.redis_store import RedisWorkoutPayloadStore
 
 
 def provide_nutrition_port(
@@ -55,6 +57,7 @@ def provide_withings_port(
 
 async def provide_intervals_sync_coordinator(
     settings: Settings = Depends(get_settings),
+    redis: RedisClient = Depends(get_redis),
     workout_repository: WorkoutRepository = Depends(provide_workout_port),
 ) -> AsyncIterator[IntervalsSyncCoordinator]:
     async with httpx.AsyncClient(timeout=30.0) as http_client:
@@ -64,6 +67,9 @@ async def provide_intervals_sync_coordinator(
             workout_repository,
             default_lookback_days=settings.intervals_sync_lookback_days,
             rouvy_start_date=settings.intervals_rouvy_start_date,
+            payload_store=RedisWorkoutPayloadStore(
+                redis, retention_days=settings.workout_payload_retention_days
+            ),
         )
 
 
@@ -121,6 +127,24 @@ def get_summary_advice_use_case(
     )
 
 
+def get_advice_context_use_case(
+    settings: Settings = Depends(get_settings),
+    redis: RedisClient = Depends(get_redis),
+    withings_port: WithingsMeasurementsPort = Depends(provide_withings_port),
+    nutrition_repository: NutritionRepository = Depends(provide_nutrition_port),
+    workout_repository: WorkoutRepository = Depends(provide_workout_port),
+) -> GetAdviceContextUseCase:
+    """Provide the side-effect-free analytical context use case."""
+    return GetAdviceContextUseCase(
+        withings_port=withings_port,
+        nutrition_repository=nutrition_repository,
+        workout_repository=workout_repository,
+        payload_store=RedisWorkoutPayloadStore(
+            redis, retention_days=settings.workout_payload_retention_days
+        ),
+    )
+
+
 __all__ = [
     "provide_nutrition_port",
     "provide_workout_port",
@@ -134,4 +158,5 @@ __all__ = [
     "get_nutrition_entries_by_period_use_case",
     "get_list_body_measurements_use_case",
     "get_summary_advice_use_case",
+    "get_advice_context_use_case",
 ]

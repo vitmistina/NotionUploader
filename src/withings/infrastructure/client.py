@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import time
-from datetime import datetime
+from datetime import datetime, timezone
 from platform.clients import RedisClient
 from platform.config import Settings
 from typing import List, Sequence
@@ -67,12 +66,29 @@ class WithingsMeasurementsAdapter(WithingsMeasurementsPort):
 
     async def fetch_measurements(self, days: int) -> Sequence[BodyMeasurement]:
         """Fetch Withings measurements for the provided day range."""
+        end_at = datetime.now(timezone.utc)
+        start_at = int(end_at.timestamp()) - (days * 24 * 60 * 60)
+        return await self._fetch_measurements_timestamps(start_at, int(end_at.timestamp()))
+
+    async def fetch_measurements_in_range(
+        self, start_at: datetime, end_at: datetime
+    ) -> Sequence[BodyMeasurement]:
+        """Fetch measurements for explicit UTC timestamps."""
+        if start_at.tzinfo is None or end_at.tzinfo is None:
+            raise ValueError("Withings measurement boundaries must be timezone-aware")
+        return await self._fetch_measurements_timestamps(
+            int(start_at.astimezone(timezone.utc).timestamp()),
+            int(end_at.astimezone(timezone.utc).timestamp()),
+        )
+
+    async def _fetch_measurements_timestamps(
+        self, startdate: int, enddate: int
+    ) -> Sequence[BodyMeasurement]:
+        """Perform one Withings measurement request."""
         access_token = self._redis.get("withings_access_token")
         if not access_token:
             access_token = await self.refresh_access_token()
 
-        startdate = int(time.time()) - (days * 24 * 60 * 60)
-        enddate = int(time.time())
         payload = {
             "action": "getmeas",
             "startdate": startdate,
@@ -104,20 +120,20 @@ class WithingsMeasurementsAdapter(WithingsMeasurementsPort):
         measuregroups = data.get("body", {}).get("measuregrps", [])
         measurements: List[BodyMeasurement] = []
         for group in measuregroups:
-            measurement_time = datetime.fromtimestamp(group.get("date", 0))
+            measurement_time = datetime.fromtimestamp(group.get("date", 0), tz=timezone.utc)
             measures = {
                 m["type"]: m["value"] * (10 ** m["unit"]) for m in group.get("measures", [])
             }
             measurements.append(
                 BodyMeasurement(
                     measurement_time=measurement_time,
-                    weight_kg=measures.get(1, 0),
-                    fat_mass_kg=measures.get(8, 0),
-                    muscle_mass_kg=measures.get(76, 0),
-                    bone_mass_kg=measures.get(88, 0),
-                    hydration_kg=measures.get(77, 0),
-                    fat_free_mass_kg=measures.get(5, 0),
-                    body_fat_percent=measures.get(6, 0),
+                    weight_kg=measures.get(1),
+                    fat_mass_kg=measures.get(8),
+                    muscle_mass_kg=measures.get(76),
+                    bone_mass_kg=measures.get(88),
+                    hydration_kg=measures.get(77),
+                    fat_free_mass_kg=measures.get(5),
+                    body_fat_percent=measures.get(6),
                     device_name=group.get("device", "Withings Device"),
                 )
             )

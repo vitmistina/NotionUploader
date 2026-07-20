@@ -1,5 +1,6 @@
 from .activity import ActivityLap, ActivitySplit, MetricResults, WorkoutActivity
 from .advice import AthleteMetrics, SummaryAdvice
+from .advice_context import AdviceAthleteProfile, AdviceContext, AnalysisWindow, DataQualityIssue
 from .body import (
     BodyMeasurement,
     BodyMeasurementAverages,
@@ -38,6 +39,10 @@ __all__ = [
     "ManualWorkoutSubmission",
     "AthleteMetrics",
     "SummaryAdvice",
+    "AdviceAthleteProfile",
+    "AdviceContext",
+    "AnalysisWindow",
+    "DataQualityIssue",
     "WorkoutActivity",
     "MetricResults",
     "ActivitySplit",

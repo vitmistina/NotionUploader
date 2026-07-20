@@ -103,6 +103,9 @@
             "schema": {
               "type": "string",
               "description": "IANA timezone for local time, defaults to Prague.",
+              "examples": [
+                "Europe/Prague"
+              ],
               "default": "Europe/Prague",
               "title": "Timezone"
             },
@@ -174,6 +177,9 @@
             "schema": {
               "type": "string",
               "description": "IANA timezone for local time, defaults to Prague.",
+              "examples": [
+                "Europe/Prague"
+              ],
               "default": "Europe/Prague",
               "title": "Timezone"
             },
@@ -400,6 +406,97 @@
         "is_consequential": false
       }
     },
+    "/v2/advice-context": {
+      "get": {
+        "summary": "Get Advice Context",
+        "description": "Return deterministic evidence for an advice-generating consumer.",
+        "operationId": "get_advice_context_v2_advice_context_get",
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 90,
+              "minimum": 1,
+              "description": "Inclusive calendar days of analytical context.",
+              "default": 7,
+              "title": "Days"
+            },
+            "description": "Inclusive calendar days of analytical context."
+          },
+          {
+            "name": "include_entries",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include raw nutrition entries in daily evidence.",
+              "default": true,
+              "title": "Include Entries"
+            },
+            "description": "Include raw nutrition entries in daily evidence."
+          },
+          {
+            "name": "include_workout_details",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include stored interval details when available.",
+              "default": false,
+              "title": "Include Workout Details"
+            },
+            "description": "Include stored interval details when available."
+          },
+          {
+            "name": "timezone",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "IANA timezone for local time, defaults to Prague.",
+              "examples": [
+                "Europe/Prague"
+              ],
+              "default": "Europe/Prague",
+              "title": "Timezone"
+            },
+            "description": "IANA timezone for local time, defaults to Prague."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdviceContext"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-openai-isConsequential": false,
+        "is_consequential": false
+      }
+    },
     "/v2/summary-advice": {
       "get": {
         "summary": "Get Summary Advice",
@@ -429,6 +526,9 @@
             "schema": {
               "type": "string",
               "description": "IANA timezone for local time, defaults to Prague.",
+              "examples": [
+                "Europe/Prague"
+              ],
               "default": "Europe/Prague",
               "title": "Timezone"
             },
@@ -532,6 +632,269 @@
   },
   "components": {
     "schemas": {
+      "AdviceAthleteProfile": {
+        "properties": {
+          "ftp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ftp"
+          },
+          "weight": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weight"
+          },
+          "max_hr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Hr"
+          },
+          "protein_min_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protein Min G"
+          },
+          "protein_target_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protein Target G"
+          },
+          "calorie_target_kcal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calorie Target Kcal"
+          },
+          "fat_min_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fat Min G"
+          },
+          "fat_max_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fat Max G"
+          },
+          "weekly_cycling_hours_target": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekly Cycling Hours Target"
+          },
+          "weekly_cycling_load_target": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekly Cycling Load Target"
+          },
+          "weekly_strength_sessions_target": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weekly Strength Sessions Target"
+          },
+          "resting_hr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resting Hr"
+          },
+          "timezone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timezone"
+          }
+        },
+        "type": "object",
+        "title": "AdviceAthleteProfile",
+        "description": "Profile values and optional configured targets used by analysis."
+      },
+      "AdviceContext": {
+        "properties": {
+          "context_version": {
+            "type": "string",
+            "const": "2.0",
+            "title": "Context Version",
+            "default": "2.0"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "window": {
+            "$ref": "#/components/schemas/AnalysisWindow"
+          },
+          "source_status": {
+            "items": {
+              "$ref": "#/components/schemas/SourceStatus"
+            },
+            "type": "array",
+            "title": "Source Status"
+          },
+          "athlete_profile": {
+            "$ref": "#/components/schemas/AdviceAthleteProfile"
+          },
+          "nutrition": {
+            "$ref": "#/components/schemas/NutritionAnalysis"
+          },
+          "body": {
+            "$ref": "#/components/schemas/BodyAnalysis"
+          },
+          "training": {
+            "$ref": "#/components/schemas/TrainingAnalysis"
+          },
+          "cross_domain": {
+            "$ref": "#/components/schemas/CrossDomainAnalysis"
+          },
+          "quality_issues": {
+            "items": {
+              "$ref": "#/components/schemas/DataQualityIssue"
+            },
+            "type": "array",
+            "title": "Quality Issues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "window",
+          "source_status",
+          "athlete_profile",
+          "nutrition",
+          "body",
+          "training",
+          "cross_domain"
+        ],
+        "title": "AdviceContext",
+        "description": "LLM-facing deterministic analytical context."
+      },
+      "AnalysisWindow": {
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "requested_days": {
+            "type": "integer",
+            "maximum": 90.0,
+            "minimum": 1.0,
+            "title": "Requested Days"
+          },
+          "calendar_days": {
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "type": "array",
+            "title": "Calendar Days"
+          },
+          "current_local_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Current Local Date"
+          },
+          "includes_current_day": {
+            "type": "boolean",
+            "title": "Includes Current Day"
+          }
+        },
+        "type": "object",
+        "required": [
+          "timezone",
+          "start_date",
+          "end_date",
+          "requested_days",
+          "calendar_days",
+          "current_local_date",
+          "includes_current_day"
+        ],
+        "title": "AnalysisWindow",
+        "description": "The one inclusive local-calendar window used by every source."
+      },
       "AthleteMetrics": {
         "properties": {
           "ftp": {
@@ -572,6 +935,77 @@
         "title": "AthleteMetrics",
         "description": "Latest athlete-level metrics such as FTP and max heart rate."
       },
+      "BodyAnalysis": {
+        "properties": {
+          "daily": {
+            "items": {
+              "$ref": "#/components/schemas/BodyDailyAnalysis"
+            },
+            "type": "array",
+            "title": "Daily"
+          },
+          "measurements": {
+            "items": {
+              "$ref": "#/components/schemas/BodyMeasurement"
+            },
+            "type": "array",
+            "title": "Measurements"
+          },
+          "trends": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LinearRegressionResult"
+            },
+            "type": "object",
+            "title": "Trends"
+          },
+          "moving_average_7d": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moving Average 7D"
+          }
+        },
+        "type": "object",
+        "title": "BodyAnalysis"
+      },
+      "BodyDailyAnalysis": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "measurement_count": {
+            "type": "integer",
+            "title": "Measurement Count"
+          },
+          "representative": {
+            "$ref": "#/components/schemas/BodyMeasurement"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "measurement_count",
+          "representative"
+        ],
+        "title": "BodyDailyAnalysis"
+      },
       "BodyMeasurement": {
         "properties": {
           "measurement_time": {
@@ -580,44 +1014,94 @@
             "title": "Measurement Time"
           },
           "weight_kg": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Weight Kg",
             "description": "Body weight in kilograms"
           },
           "fat_mass_kg": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fat Mass Kg",
             "description": "Total fat mass in kilograms"
           },
           "muscle_mass_kg": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Muscle Mass Kg",
             "description": "Skeletal muscle mass in kilograms"
           },
           "bone_mass_kg": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Bone Mass Kg",
             "description": "Bone mass in kilograms"
           },
           "hydration_kg": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Hydration Kg",
             "description": "Body water content in kilograms"
           },
           "fat_free_mass_kg": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fat Free Mass Kg",
             "description": "Fat-free mass (muscles, bones, tissues) in kilograms"
           },
           "body_fat_percent": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Body Fat Percent",
             "description": "Body fat percentage"
           },
           "device_name": {
             "type": "string",
             "title": "Device Name",
-            "description": "Name of the measuring device"
+            "description": "Name of the measuring device",
+            "default": "Unknown device"
           },
           "moving_average_7d": {
             "anyOf": [
@@ -633,15 +1117,7 @@
         },
         "type": "object",
         "required": [
-          "measurement_time",
-          "weight_kg",
-          "fat_mass_kg",
-          "muscle_mass_kg",
-          "bone_mass_kg",
-          "hydration_kg",
-          "fat_free_mass_kg",
-          "body_fat_percent",
-          "device_name"
+          "measurement_time"
         ],
         "title": "BodyMeasurement",
         "description": "A human-readable representation of body measurements from a smart scale.",
@@ -660,51 +1136,91 @@
       "BodyMeasurementAverages": {
         "properties": {
           "weight_kg": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Weight Kg",
             "description": "7-day average of body weight in kilograms"
           },
           "fat_mass_kg": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fat Mass Kg",
             "description": "7-day average of total fat mass in kilograms"
           },
           "muscle_mass_kg": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Muscle Mass Kg",
             "description": "7-day average of skeletal muscle mass in kilograms"
           },
           "bone_mass_kg": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Bone Mass Kg",
             "description": "7-day average of bone mass in kilograms"
           },
           "hydration_kg": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Hydration Kg",
             "description": "7-day average of body water content in kilograms"
           },
           "fat_free_mass_kg": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fat Free Mass Kg",
             "description": "7-day average of fat-free mass (muscles, bones, tissues) in kilograms"
           },
           "body_fat_percent": {
-            "type": "number",
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Body Fat Percent",
             "description": "7-day average of body fat percentage"
           }
         },
         "type": "object",
-        "required": [
-          "weight_kg",
-          "fat_mass_kg",
-          "muscle_mass_kg",
-          "bone_mass_kg",
-          "hydration_kg",
-          "fat_free_mass_kg",
-          "body_fat_percent"
-        ],
         "title": "BodyMeasurementAverages",
         "description": "7-day moving averages for body measurements."
       },
@@ -776,10 +1292,152 @@
         "title": "BodyMetricTrends",
         "description": "Linear regression trends for core body metrics."
       },
+      "CrossDomainAnalysis": {
+        "properties": {
+          "daily": {
+            "items": {
+              "$ref": "#/components/schemas/DailyCrossDomainSummary"
+            },
+            "type": "array",
+            "title": "Daily"
+          }
+        },
+        "type": "object",
+        "title": "CrossDomainAnalysis"
+      },
+      "DailyCrossDomainSummary": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "nutrition_recorded": {
+            "type": "boolean",
+            "title": "Nutrition Recorded"
+          },
+          "workout_count": {
+            "type": "integer",
+            "title": "Workout Count"
+          },
+          "workout_duration_s": {
+            "type": "number",
+            "title": "Workout Duration S"
+          },
+          "exercise_kcal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exercise Kcal"
+          },
+          "exercise_kcal_coverage_ratio": {
+            "type": "number",
+            "title": "Exercise Kcal Coverage Ratio"
+          },
+          "intake_kcal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intake Kcal"
+          },
+          "protein_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protein G"
+          },
+          "carbs_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carbs G"
+          },
+          "net_intake_after_recorded_exercise_kcal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Intake After Recorded Exercise Kcal"
+          },
+          "screening_energy_availability_kcal_per_kg_ffm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Screening Energy Availability Kcal Per Kg Ffm"
+          },
+          "energy_availability_inputs_complete": {
+            "type": "boolean",
+            "title": "Energy Availability Inputs Complete"
+          },
+          "fat_free_mass_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fat Free Mass Date"
+          },
+          "fat_free_mass_kg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fat Free Mass Kg"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "nutrition_recorded",
+          "workout_count",
+          "workout_duration_s",
+          "exercise_kcal_coverage_ratio",
+          "energy_availability_inputs_complete"
+        ],
+        "title": "DailyCrossDomainSummary"
+      },
       "DailyNutritionSummaryWithEntries": {
         "properties": {
           "date": {
             "type": "string",
+            "format": "date",
             "title": "Date"
           },
           "daily_calories_sum": {
@@ -817,6 +1475,128 @@
         ],
         "title": "DailyNutritionSummaryWithEntries",
         "description": "Daily summary extended with the list of individual entries."
+      },
+      "DailyTrainingSummary": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "workout_count": {
+            "type": "integer",
+            "title": "Workout Count"
+          },
+          "duration_s": {
+            "type": "number",
+            "title": "Duration S"
+          },
+          "distance_m": {
+            "type": "number",
+            "title": "Distance M"
+          },
+          "elevation_m": {
+            "type": "number",
+            "title": "Elevation M"
+          },
+          "kcal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kcal"
+          },
+          "load_by_family": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "enum": [
+                "provider_training_load",
+                "power_derived_tss",
+                "hr_estimated_load",
+                "manual_load",
+                "unknown_load"
+              ]
+            },
+            "type": "object",
+            "title": "Load By Family"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "workout_count",
+          "duration_s",
+          "distance_m",
+          "elevation_m"
+        ],
+        "title": "DailyTrainingSummary"
+      },
+      "DataQualityIssue": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "domain": {
+            "type": "string",
+            "enum": [
+              "nutrition",
+              "body",
+              "training",
+              "profile",
+              "cross_domain"
+            ],
+            "title": "Domain"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning",
+              "critical"
+            ],
+            "title": "Severity"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "affected_dates": {
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "type": "array",
+            "title": "Affected Dates"
+          },
+          "affected_record_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Affected Record Ids"
+          },
+          "details": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Details"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "domain",
+          "severity",
+          "message"
+        ],
+        "title": "DataQualityIssue",
+        "description": "A stable, actionable data-quality observation."
       },
       "HTTPValidationError": {
         "properties": {
@@ -913,6 +1693,16 @@
             },
             "type": "array",
             "title": "Failures"
+          },
+          "payloads_retained": {
+            "type": "integer",
+            "title": "Payloads Retained",
+            "default": 0
+          },
+          "payload_retention_failures": {
+            "type": "integer",
+            "title": "Payload Retention Failures",
+            "default": 0
           }
         },
         "type": "object",
@@ -952,6 +1742,64 @@
         ],
         "title": "LinearRegressionResult",
         "description": "Slope, intercept, and coefficient of determination for a metric."
+      },
+      "LoadConcentration": {
+        "properties": {
+          "sport_group": {
+            "type": "string",
+            "enum": [
+              "cycling",
+              "strength",
+              "walking",
+              "running",
+              "other"
+            ],
+            "title": "Sport Group"
+          },
+          "load_family": {
+            "type": "string",
+            "enum": [
+              "provider_training_load",
+              "power_derived_tss",
+              "hr_estimated_load",
+              "manual_load",
+              "unknown_load"
+            ],
+            "title": "Load Family"
+          },
+          "recent_window_days": {
+            "type": "integer",
+            "title": "Recent Window Days"
+          },
+          "recent_load": {
+            "type": "number",
+            "title": "Recent Load"
+          },
+          "full_window_load": {
+            "type": "number",
+            "title": "Full Window Load"
+          },
+          "recent_share_of_full_window": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recent Share Of Full Window"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sport_group",
+          "load_family",
+          "recent_window_days",
+          "recent_load",
+          "full_window_load"
+        ],
+        "title": "LoadConcentration"
       },
       "ManualWorkoutSubmission": {
         "properties": {
@@ -1152,6 +2000,318 @@
         "title": "ManualWorkoutSubmission",
         "description": "Payload describing a manually logged workout extracted by a GPT agent."
       },
+      "NumericDistribution": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Count"
+          },
+          "mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean"
+          },
+          "median": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median"
+          },
+          "standard_deviation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Standard Deviation"
+          },
+          "minimum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum"
+          },
+          "minimum_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum Date"
+          },
+          "maximum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum"
+          },
+          "maximum_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Date"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "title": "NumericDistribution",
+        "description": "Descriptive statistics for one recorded-day nutrition series."
+      },
+      "NutritionAnalysis": {
+        "properties": {
+          "coverage": {
+            "$ref": "#/components/schemas/NutritionCoverage"
+          },
+          "daily": {
+            "items": {
+              "$ref": "#/components/schemas/NutritionDayAnalysis"
+            },
+            "type": "array",
+            "title": "Daily"
+          },
+          "recorded_past_day_statistics": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/NumericDistribution"
+            },
+            "type": "object",
+            "title": "Recorded Past Day Statistics"
+          },
+          "target_comparison": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NutritionTargetComparison"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "coverage",
+          "daily"
+        ],
+        "title": "NutritionAnalysis"
+      },
+      "NutritionCoverage": {
+        "properties": {
+          "requested_days": {
+            "type": "integer",
+            "title": "Requested Days"
+          },
+          "days_with_entries": {
+            "type": "integer",
+            "title": "Days With Entries"
+          },
+          "days_without_entries": {
+            "type": "integer",
+            "title": "Days Without Entries"
+          },
+          "recorded_day_ratio": {
+            "type": "number",
+            "title": "Recorded Day Ratio"
+          },
+          "missing_dates": {
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "type": "array",
+            "title": "Missing Dates"
+          },
+          "statistics_excluded_dates": {
+            "items": {
+              "type": "string",
+              "format": "date"
+            },
+            "type": "array",
+            "title": "Statistics Excluded Dates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "requested_days",
+          "days_with_entries",
+          "days_without_entries",
+          "recorded_day_ratio"
+        ],
+        "title": "NutritionCoverage",
+        "description": "Coverage facts for the requested nutrition window."
+      },
+      "NutritionDayAnalysis": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "has_entries": {
+            "type": "boolean",
+            "title": "Has Entries"
+          },
+          "is_current_day": {
+            "type": "boolean",
+            "title": "Is Current Day"
+          },
+          "entry_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Entry Count"
+          },
+          "observed_meal_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Observed Meal Types"
+          },
+          "calories_kcal": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calories Kcal"
+          },
+          "protein_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protein G"
+          },
+          "carbs_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Carbs G"
+          },
+          "fat_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fat G"
+          },
+          "macro_energy_kcal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Macro Energy Kcal"
+          },
+          "unattributed_energy_kcal": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unattributed Energy Kcal"
+          },
+          "unattributed_energy_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unattributed Energy Ratio"
+          },
+          "protein_by_meal_type_g": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Protein By Meal Type G"
+          },
+          "carbs_by_meal_type_g": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Carbs By Meal Type G"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/NutritionEntry"
+            },
+            "type": "array",
+            "title": "Entries"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "has_entries",
+          "is_current_day",
+          "entry_count"
+        ],
+        "title": "NutritionDayAnalysis",
+        "description": "Nutrition evidence for exactly one calendar day."
+      },
       "NutritionEntry": {
         "properties": {
           "page_id": {
@@ -1172,6 +2332,7 @@
           },
           "date": {
             "type": "string",
+            "format": "date",
             "title": "Date"
           },
           "calories": {
@@ -1257,6 +2418,131 @@
         "title": "NutritionSummaryResponse",
         "description": "Time contextualized response containing one or more daily summaries."
       },
+      "NutritionTargetComparison": {
+        "properties": {
+          "protein_min_g": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NutritionTargetMetric"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "protein_target_g": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NutritionTargetMetric"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "calorie_target_kcal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NutritionTargetMetric"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fat_min_g": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NutritionTargetMetric"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fat_max_g": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NutritionTargetMetric"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "title": "NutritionTargetComparison",
+        "description": "Available nutrition target comparisons, without qualitative labels."
+      },
+      "NutritionTargetMetric": {
+        "properties": {
+          "target": {
+            "type": "number",
+            "title": "Target"
+          },
+          "average_recorded_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Recorded Value"
+          },
+          "absolute_difference": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Absolute Difference"
+          },
+          "percentage_difference": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percentage Difference"
+          },
+          "days_meeting_target": {
+            "type": "integer",
+            "title": "Days Meeting Target",
+            "default": 0
+          },
+          "recorded_day_count": {
+            "type": "integer",
+            "title": "Recorded Day Count",
+            "default": 0
+          },
+          "meeting_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Meeting Ratio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target"
+        ],
+        "title": "NutritionTargetMetric",
+        "description": "Comparison of a target against recorded past-day values."
+      },
       "OperationStatus": {
         "properties": {
           "status": {
@@ -1283,6 +2569,53 @@
         ],
         "title": "OperationStatus",
         "description": "Normalized status payload returned by mutation endpoints."
+      },
+      "SourceStatus": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "nutrition",
+              "withings",
+              "workouts",
+              "athlete_profile"
+            ],
+            "title": "Source"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable",
+              "partial"
+            ],
+            "title": "Status"
+          },
+          "record_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Record Count"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "status",
+          "record_count"
+        ],
+        "title": "SourceStatus",
+        "description": "Availability and safe diagnostics for one upstream source."
       },
       "SummaryAdvice": {
         "properties": {
@@ -1343,6 +2676,144 @@
         "title": "SummaryAdvice",
         "description": "Combined nutrition, body metrics, workout data, and athlete metrics."
       },
+      "TrainingAnalysis": {
+        "properties": {
+          "daily": {
+            "items": {
+              "$ref": "#/components/schemas/DailyTrainingSummary"
+            },
+            "type": "array",
+            "title": "Daily"
+          },
+          "workouts": {
+            "items": {
+              "$ref": "#/components/schemas/WorkoutLog"
+            },
+            "type": "array",
+            "title": "Workouts"
+          },
+          "windows": {
+            "items": {
+              "$ref": "#/components/schemas/TrainingWindowSummary"
+            },
+            "type": "array",
+            "title": "Windows"
+          },
+          "load_concentration": {
+            "items": {
+              "$ref": "#/components/schemas/LoadConcentration"
+            },
+            "type": "array",
+            "title": "Load Concentration"
+          }
+        },
+        "type": "object",
+        "title": "TrainingAnalysis"
+      },
+      "TrainingWindowSummary": {
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "calendar_days": {
+            "type": "integer",
+            "title": "Calendar Days"
+          },
+          "training_days": {
+            "type": "integer",
+            "title": "Training Days"
+          },
+          "duration_hours_by_sport": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "enum": [
+                "cycling",
+                "strength",
+                "walking",
+                "running",
+                "other"
+              ]
+            },
+            "type": "object",
+            "title": "Duration Hours By Sport"
+          },
+          "workout_count_by_sport": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "enum": [
+                "cycling",
+                "strength",
+                "walking",
+                "running",
+                "other"
+              ]
+            },
+            "type": "object",
+            "title": "Workout Count By Sport"
+          },
+          "load_by_family": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "enum": [
+                "provider_training_load",
+                "power_derived_tss",
+                "hr_estimated_load",
+                "manual_load",
+                "unknown_load"
+              ]
+            },
+            "type": "object",
+            "title": "Load By Family"
+          },
+          "exercise_kcal_sum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exercise Kcal Sum"
+          },
+          "exercise_kcal_coverage_ratio": {
+            "type": "number",
+            "title": "Exercise Kcal Coverage Ratio"
+          },
+          "longest_training_streak_days": {
+            "type": "integer",
+            "title": "Longest Training Streak Days"
+          },
+          "longest_rest_gap_days": {
+            "type": "integer",
+            "title": "Longest Rest Gap Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start_date",
+          "end_date",
+          "calendar_days",
+          "training_days",
+          "exercise_kcal_coverage_ratio",
+          "longest_training_streak_days",
+          "longest_rest_gap_days"
+        ],
+        "title": "TrainingWindowSummary"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -1390,6 +2861,88 @@
           "date": {
             "type": "string",
             "title": "Date"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "external_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "External Id"
+          },
+          "provider_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Source"
+          },
+          "provider_client_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Client Name"
+          },
+          "device_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device Name"
+          },
+          "payload_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payload Key"
+          },
+          "intervals": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intervals"
           },
           "duration_s": {
             "type": "number",
@@ -1527,6 +3080,61 @@
               }
             ],
             "title": "Intensity Factor"
+          },
+          "tss_origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tss Origin"
+          },
+          "load_family": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load Family"
+          },
+          "intensity_factor_origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intensity Factor Origin"
+          },
+          "hr_drift_origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hr Drift Origin"
+          },
+          "vo2max_origin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vo2Max Origin"
           },
           "notes": {
             "anyOf": [

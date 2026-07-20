@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import List, Union
 
 from ...models.nutrition import (
@@ -12,7 +13,7 @@ from ...models.nutrition import (
 
 
 def build_daily_summary(
-    date: str, items: List[NutritionEntry], *, include_entries: bool = False
+    date: str | date, items: List[NutritionEntry], *, include_entries: bool = False
 ) -> Union[DailyNutritionSummary, DailyNutritionSummaryWithEntries]:
     """Aggregate a list of entries into a daily nutrition summary."""
     base = {

@@ -1,6 +1,7 @@
 """Application layer use cases coordinating domain services."""
 
 from .advice import GetSummaryAdviceUseCase
+from .advice_context import GetAdviceContextUseCase
 from .metrics import ListBodyMeasurementsUseCase
 from .nutrition import (
     CreateNutritionEntryUseCase,
@@ -24,4 +25,5 @@ __all__ = [
     "GetNutritionEntriesByPeriodUseCase",
     "ListBodyMeasurementsUseCase",
     "GetSummaryAdviceUseCase",
+    "GetAdviceContextUseCase",
 ]
