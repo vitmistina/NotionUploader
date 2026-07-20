@@ -7,7 +7,7 @@ from ..application.advice_context import GetAdviceContextUseCase
 from ..models.advice import SummaryAdvice
 from ..models.advice_context import AdviceContext
 from ..platform.wiring import get_advice_context_use_case, get_summary_advice_use_case
-from .utils import timezone_query
+from .utils import validated_timezone
 
 router: APIRouter = APIRouter()
 
@@ -15,7 +15,7 @@ router: APIRouter = APIRouter()
 @router.get("/advice-context", response_model=AdviceContext)
 async def get_advice_context(
     days: int = Query(7, ge=1, le=90, description="Inclusive calendar days of analytical context."),
-    timezone: str = timezone_query,
+    timezone: str = Depends(validated_timezone),
     include_entries: bool = Query(
         True, description="Include raw nutrition entries in daily evidence."
     ),
@@ -36,7 +36,7 @@ async def get_advice_context(
 @router.get("/summary-advice", response_model=SummaryAdvice)
 async def get_summary_advice(
     days: int = Query(7, description="Number of days of data to retrieve."),
-    timezone: str = timezone_query,
+    timezone: str = Depends(validated_timezone),
     use_case: GetSummaryAdviceUseCase = Depends(get_summary_advice_use_case),
 ) -> SummaryAdvice:
     return await use_case(days, timezone)

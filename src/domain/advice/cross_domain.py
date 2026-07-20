@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
+from ...domain.advice.dates import workout_local_date
 from ...models.advice_context import (
     AnalysisWindow,
     BodyAnalysis,
@@ -12,6 +13,7 @@ from ...models.advice_context import (
     NutritionAnalysis,
     TrainingAnalysis,
 )
+from ...models.workout import WorkoutLog
 
 
 def analyze_cross_domain(
@@ -31,7 +33,7 @@ def analyze_cross_domain(
         workout_count = training_day.workout_count if training_day else 0
         duration = training_day.duration_s if training_day else 0.0
         exercise_kcal = training_day.kcal if training_day else (0.0 if workout_count == 0 else None)
-        coverage = training_day_kcal_coverage(training_day, training)
+        coverage = training_day_kcal_coverage(training_day, training, window.timezone)
         ffm_date, ffm = _latest_ffm(day, body_by_date)
         complete = (
             nutrition_day.calories_kcal is not None
@@ -66,7 +68,9 @@ def analyze_cross_domain(
     return CrossDomainAnalysis(daily=daily)
 
 
-def training_day_kcal_coverage(day: object | None, training: TrainingAnalysis) -> float:
+def training_day_kcal_coverage(
+    day: object | None, training: TrainingAnalysis, timezone_name: str = "UTC"
+) -> float:
     """Return the fraction of workouts with an exercise-calorie value."""
     if day is None:
         return 1.0
@@ -79,11 +83,20 @@ def training_day_kcal_coverage(day: object | None, training: TrainingAnalysis) -
     if training_day is None:
         return 0.0
     workouts = [
-        workout for workout in training.workouts if workout.date[:10] == str(training_day.date)
+        workout
+        for workout in training.workouts
+        if _workout_date(workout, timezone_name) == getattr(training_day, "date")
     ]
     if not workouts:
         return 0.0
     return sum(workout.kcal is not None for workout in workouts) / len(workouts)
+
+
+def _workout_date(workout: WorkoutLog, timezone_name: str) -> date | None:
+    try:
+        return workout_local_date(workout, timezone_name)
+    except ValueError:
+        return None
 
 
 def _latest_ffm(day: date, body_by_date: dict[date, object]) -> tuple[date | None, float | None]:

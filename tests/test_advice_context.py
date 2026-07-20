@@ -124,3 +124,122 @@ async def test_context_returns_503_when_all_analytical_sources_fail() -> None:
     with pytest.raises(HTTPException) as raised:
         await use_case(days=1, timezone="UTC")
     assert raised.value.status_code == 503
+
+class PayloadStore:
+    def __init__(self, values):
+        self.values = values
+
+    async def put(self, key: str, value: str) -> None:
+        self.values[key] = value
+
+    async def get(self, key: str) -> str | None:
+        value = self.values[key]
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+
+class DetailWorkouts(Workouts):
+    def __init__(self, payload_keys: list[str | None]) -> None:
+        self.payload_keys = payload_keys
+
+    async def list_workouts_in_range(self, start_date, end_date, timezone_name):
+        return [
+            WorkoutLog(
+                page_id=f"ride-{index}",
+                name="Ride",
+                date="2026-07-15",
+                duration_s=3600,
+                distance_m=1000,
+                elevation_m=10,
+                type="Ride",
+                kcal=500,
+                tss=100,
+                tss_origin="provider",
+                load_family="provider_training_load",
+                payload_key=payload_key,
+            )
+            for index, payload_key in enumerate(self.payload_keys)
+        ]
+
+
+@pytest.mark.asyncio
+async def test_context_enriches_workout_details_and_reports_partial_payload_failures() -> None:
+    import base64
+    import gzip
+    import json
+
+    valid = base64.b64encode(
+        gzip.compress(json.dumps({"laps": [{"distance": 1}]}).encode())
+    ).decode()
+    use_case = GetAdviceContextUseCase(
+        nutrition_repository=Nutrition(),
+        withings_port=Body(),
+        workout_repository=DetailWorkouts(["valid", None, "expired", "broken", "store"]),
+        clock=clock,
+        payload_store=PayloadStore(
+            {
+                "valid": valid,
+                "expired": None,
+                "broken": "not-gzip-json",
+                "store": RuntimeError("redis://secret-token"),
+            }
+        ),
+    )
+
+    context = await use_case(days=2, timezone="UTC", include_workout_details=True)
+
+    assert context.training.workouts[0].intervals == [{"distance": 1}]
+    reasons = [
+        issue.details["reason"]
+        for issue in context.quality_issues
+        if issue.code == "TRAINING_WORKOUT_DETAILS_UNAVAILABLE"
+    ]
+    assert reasons == ["not_retained", "expired", "decode_failed", "store_unavailable"]
+
+
+@pytest.mark.asyncio
+async def test_context_reports_configured_payload_key_when_store_is_unavailable() -> None:
+    use_case = GetAdviceContextUseCase(
+        nutrition_repository=Nutrition(),
+        withings_port=Body(),
+        workout_repository=DetailWorkouts(["retained-key"]),
+        clock=clock,
+        payload_store=None,
+    )
+
+    context = await use_case(days=2, timezone="UTC", include_workout_details=True)
+
+    issue = next(
+        item
+        for item in context.quality_issues
+        if item.code == "TRAINING_WORKOUT_DETAILS_UNAVAILABLE"
+    )
+    assert issue.details == {"reason": "store_unavailable"}
+
+
+@pytest.mark.asyncio
+async def test_context_rejects_non_list_primary_interval_collection() -> None:
+    import base64
+    import gzip
+    import json
+
+    payload = base64.b64encode(
+        gzip.compress(json.dumps({"splits_metric": {}, "laps": []}).encode())
+    ).decode()
+    use_case = GetAdviceContextUseCase(
+        nutrition_repository=Nutrition(),
+        withings_port=Body(),
+        workout_repository=DetailWorkouts(["malformed"]),
+        clock=clock,
+        payload_store=PayloadStore({"malformed": payload}),
+    )
+
+    context = await use_case(days=2, timezone="UTC", include_workout_details=True)
+
+    assert context.training.workouts[0].intervals is None
+    assert any(
+        item.details == {"reason": "decode_failed"}
+        for item in context.quality_issues
+        if item.code == "TRAINING_WORKOUT_DETAILS_UNAVAILABLE"
+    )
